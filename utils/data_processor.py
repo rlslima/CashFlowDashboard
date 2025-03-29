@@ -5,62 +5,86 @@ import re
 
 def process_data(df):
     """
-    Process the raw dataframe from Google Sheets
+    Processa o dataframe bruto do Google Sheets ou Excel
     
     Args:
-        df (pandas.DataFrame): Raw DataFrame from Google Sheets
+        df (pandas.DataFrame): DataFrame bruto 
     
     Returns:
-        pandas.DataFrame: Processed DataFrame ready for analysis
+        pandas.DataFrame: DataFrame processado pronto para análise
     """
-    # Create a copy of the dataframe to avoid modifying the original
+    # Criar uma cópia do dataframe para evitar modificar o original
     df_processed = df.copy()
     
-    # Rename columns if needed (assuming the columns match our expected format)
+    # Renomear colunas se necessário (assumindo que as colunas correspondam ao formato esperado)
     expected_columns = ["Company", "Type", "Work", "Supplier/Client", "Value", "Date"]
     
-    # Check if columns need renaming based on their position
+    # Verificar se as colunas precisam ser renomeadas com base em sua posição
     if list(df_processed.columns) != expected_columns and len(df_processed.columns) == len(expected_columns):
         df_processed.columns = expected_columns
     
-    # Handle missing values
+    # Tratar valores ausentes
     df_processed = df_processed.dropna(subset=["Value", "Date"])
     
-    # Process Value column - convert from string to float
+    # Processar coluna Value - converter de string para float
+    print(f"Processando {len(df_processed)} valores monetários")
     df_processed["Value"] = df_processed["Value"].astype(str)
     df_processed["Value"] = df_processed["Value"].apply(lambda x: convert_currency_to_float(x))
     
-    # Process Type column - ensure 'Expense' values are negative
+    # Imprimir valores após conversão para debug
+    print("Valores após conversão:")
+    print(df_processed["Value"].head(10).tolist())
+    
+    # Processar coluna Type - garantir que valores 'Expense' sejam negativos
     df_processed["Signed Value"] = df_processed.apply(
         lambda row: -row["Value"] if row["Type"] == "Expense" else row["Value"], 
         axis=1
     )
     
-    # Process Date column - convert to datetime
-    df_processed["Date"] = pd.to_datetime(df_processed["Date"], errors='coerce')
+    # Processar coluna Date - converter para datetime (formato brasileiro DD/MM/YYYY)
+    try:
+        # Tentar primeiro com formato padrão (vai reconhecer automaticamente)
+        df_processed["Date"] = pd.to_datetime(df_processed["Date"], errors='coerce')
+    except:
+        # Se falhar, tentar explicitamente com formato brasileiro
+        df_processed["Date"] = pd.to_datetime(df_processed["Date"], errors='coerce', 
+                                              format='%d/%m/%Y', dayfirst=True)
     
-    # Extract additional date-related columns for analysis
+    # Para debug - verificar se há datas inválidas
+    invalid_dates = df_processed["Date"].isna().sum()
+    if invalid_dates > 0:
+        print(f"ATENÇÃO: {invalid_dates} datas não puderam ser convertidas!")
+    
+    # Extrair colunas adicionais relacionadas a datas para análise
     df_processed["Year"] = df_processed["Date"].dt.year
     df_processed["Month"] = df_processed["Date"].dt.month
     df_processed["Month Name"] = df_processed["Date"].dt.strftime("%b")
     df_processed["Quarter"] = df_processed["Date"].dt.quarter
     
-    # Create Period (YYYY-MM) for easier grouping
+    # Criar Período (YYYY-MM) para agrupamento mais fácil
     df_processed["Period"] = df_processed["Date"].dt.strftime("%Y-%m")
+    
+    # Resumo do processamento
+    print(f"Processamento concluído: {len(df_processed)} linhas válidas")
+    print(f"Soma total de valores: R$ {df_processed['Value'].sum():.2f}")
     
     return df_processed
 
 def convert_currency_to_float(value_str):
     """
-    Convert string currency values to float
+    Converte valores de moeda em string para float
+    Otimizado para o formato BRL (Real Brasileiro)
     
     Args:
-        value_str (str): String representation of currency value
+        value_str (str): Representação em string do valor monetário
     
     Returns:
-        float: Numerical value
+        float: Valor numérico
     """
     try:
+        # Debug para verificar o valor original
+        print(f"Valor original: '{value_str}' - Tipo: {type(value_str)}")
+        
         # Se já for um número, apenas converter
         if isinstance(value_str, (int, float)):
             return float(value_str)
@@ -69,56 +93,79 @@ def convert_currency_to_float(value_str):
         if not isinstance(value_str, str):
             value_str = str(value_str)
         
-        # Remover símbolos de moeda, espaços e caracteres não numéricos
+        # Remover símbolos de moeda (R$), espaços e caracteres não numéricos
         clean_value = re.sub(r'[^\d.,\-]', '', value_str)
         
+        # Debug para verificar o valor após limpeza
+        print(f"Valor após limpeza: '{clean_value}'")
+        
         # Tratar valores vazios
-        if not clean_value or clean_value == '.':
+        if not clean_value or clean_value == '.' or clean_value == ',':
             return 0.0
         
-        # Identificar formato brasileiro (vírgula como separador decimal)
-        if ',' in clean_value and '.' not in clean_value:
+        # Formato brasileiro padrão: 1.234,56 (vírgula como separador decimal)
+        # Se tiver vírgula e pontos, assumir formato brasileiro com separador de milhar
+        if '.' in clean_value and ',' in clean_value:
+            # Remover os pontos (separadores de milhar) e substituir vírgula por ponto
+            clean_value = clean_value.replace('.', '').replace(',', '.')
+        # Formato com apenas vírgula como separador decimal
+        elif ',' in clean_value:
             clean_value = clean_value.replace(',', '.')
-        # Formato internacional com separador de milhar
-        elif ',' in clean_value and '.' in clean_value:
-            clean_value = clean_value.replace(',', '')
+        
+        # Debug para verificar o valor final antes da conversão
+        print(f"Valor antes da conversão: '{clean_value}'")
         
         # Converter para float
-        return float(clean_value)
+        result = float(clean_value)
+        print(f"Valor convertido: {result}")
+        return result
     except Exception as e:
         # Debug mais detalhado do erro
-        print(f"Erro ao converter valor '{value_str}': {str(e)}")
+        print(f"ERRO ao converter valor '{value_str}': {str(e)}")
         return 0.0
 
 def calculate_cash_flow_summary(df):
     """
-    Calculate cash flow summary statistics
+    Calcula estatísticas resumidas de fluxo de caixa
     
     Args:
-        df (pandas.DataFrame): Processed DataFrame
+        df (pandas.DataFrame): DataFrame processado
     
     Returns:
-        dict: Dictionary with summary statistics
+        dict: Dicionário com estatísticas resumidas
     """
     summary = {}
     
-    # Total income
+    # Total de receitas
     income_df = df[df["Type"] == "Income"]
     summary["total_income"] = income_df["Value"].sum()
     
-    # Total expenses
+    # Total de despesas
     expense_df = df[df["Type"] == "Expense"]
     summary["total_expenses"] = expense_df["Value"].sum()
     
-    # Net cash flow
+    # Fluxo de caixa líquido
     summary["net_cash_flow"] = summary["total_income"] - summary["total_expenses"]
     
-    # Current month cash flow
+    # Fluxo de caixa do mês atual
     current_month = datetime.now().strftime("%Y-%m")
     current_month_df = df[df["Period"] == current_month]
     
     income_month = current_month_df[current_month_df["Type"] == "Income"]["Value"].sum()
     expense_month = current_month_df[current_month_df["Type"] == "Expense"]["Value"].sum()
     summary["current_month_net"] = income_month - expense_month
+    
+    # Adicionar quantidade de transações para o resumo
+    summary["transaction_count"] = len(df)
+    summary["income_transaction_count"] = len(income_df)
+    summary["expense_transaction_count"] = len(expense_df)
+    
+    # Estatísticas adicionais
+    if not df.empty:
+        summary["oldest_transaction"] = df["Date"].min().strftime("%d/%m/%Y")
+        summary["newest_transaction"] = df["Date"].max().strftime("%d/%m/%Y")
+    else:
+        summary["oldest_transaction"] = "N/A"
+        summary["newest_transaction"] = "N/A"
     
     return summary

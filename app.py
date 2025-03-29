@@ -9,63 +9,63 @@ from views.period_view import show_period_view
 from views.yearly_view import show_yearly_view
 from views.company_view import show_company_view
 
-# Set page configuration
+# Configuração da página
 st.set_page_config(
-    page_title="Combrasen Group Financial Dashboard",
+    page_title="Painel Financeiro Grupo Combrasen",
     page_icon="💰",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Define session state for data
+# Definir estado da sessão para dados
 if 'data' not in st.session_state:
     st.session_state.data = None
     st.session_state.last_refresh = None
 
-# App title and header
-st.title("Combrasen Group Financial Dashboard")
+# Título e cabeçalho do aplicativo
+st.title("Painel Financeiro do Grupo Combrasen")
 st.markdown("---")
 
-# Function to load and process data
-@st.cache_data(ttl=300)  # Cache for 5 minutes
+# Função para carregar e processar dados
+@st.cache_data(ttl=300)  # Cache por 5 minutos
 def load_data():
     try:
-        # Google Sheet URL
+        # URL do Google Sheet
         sheet_url = "https://docs.google.com/spreadsheets/d/1XRy39MblVtmWLpggz1cC_qIRdqE40vIx/edit?usp=sharing&ouid=110344857582375962786&rtpof=true&sd=true"
         
-        # Fetch data from Google Sheets
+        # Buscar dados do Google Sheets
         raw_data = fetch_google_sheet_data(sheet_url)
         
         if raw_data is not None and not raw_data.empty:
-            # Process the data
+            # Processar os dados
             processed_data = process_data(raw_data)
             
             # Para debug: mostrar os dados brutos e processados
-            st.sidebar.expander("Debug Raw Data", expanded=False).write(f"""
+            st.sidebar.expander("Dados Brutos (Debug)", expanded=False).write(f"""
             Dados brutos: {raw_data.shape[0]} linhas
             Colunas: {raw_data.columns.tolist()}
             Primeiros valores: {str(raw_data.head(3))}
             """)
             
             if not processed_data.empty:
-                st.sidebar.expander("Debug Processed Data", expanded=False).write(f"""
+                st.sidebar.expander("Dados Processados (Debug)", expanded=False).write(f"""
                 Processados: {processed_data.shape[0]} linhas
-                Soma de valores: {processed_data['Value'].sum():.2f}
-                Min data: {processed_data['Date'].min()}
-                Max data: {processed_data['Date'].max()}
+                Soma de valores: R$ {processed_data['Value'].sum():.2f}
+                Data mínima: {processed_data['Date'].min().strftime('%d/%m/%Y')}
+                Data máxima: {processed_data['Date'].max().strftime('%d/%m/%Y')}
                 """)
             
             return processed_data
         else:
-            st.error("Failed to load data from Google Sheets or the sheet is empty.")
+            st.error("Falha ao carregar dados do Google Sheets ou a planilha está vazia.")
             return None
     except Exception as e:
-        st.error(f"Error loading data: {str(e)}")
+        st.error(f"Erro ao carregar dados: {str(e)}")
         return None
 
-# Sidebar - Data Refresh & Upload
+# Barra lateral - Atualização e Upload de dados
 with st.sidebar:
-    st.title("Dashboard Controls")
+    st.title("Controles do Painel")
     
     # Adicionar opção para carregar arquivo local
     uploaded_file = st.file_uploader("Upload planilha Excel", type=['xlsx', 'xls'])
@@ -90,76 +90,76 @@ with st.sidebar:
     # Separador
     st.markdown("---")
     
-    # Refresh data button (Google Sheets)
+    # Botão para atualizar dados (Google Sheets)
     if st.button("Atualizar via Google Sheets", use_container_width=True):
         with st.spinner("Atualizando dados..."):
             st.session_state.data = load_data()
             st.session_state.last_refresh = datetime.now()
         st.success("Dados atualizados com sucesso!")
     
-    # Show last refresh time
+    # Mostrar última hora de atualização
     if st.session_state.last_refresh:
-        st.info(f"Última atualização: {st.session_state.last_refresh.strftime('%Y-%m-%d %H:%M:%S')}")
+        st.info(f"Última atualização: {st.session_state.last_refresh.strftime('%d/%m/%Y %H:%M:%S')}")
     
     st.markdown("---")
     
-    # Navigation
-    st.subheader("Views")
+    # Navegação
+    st.subheader("Visualizações")
     view = st.radio(
-        "Select View",
-        options=["Monthly Cash Flow", "Period Analysis", "Yearly Summary", "Company Comparison"],
+        "Selecionar Visualização",
+        options=["Fluxo de Caixa Mensal", "Análise por Período", "Resumo Anual", "Comparação de Empresas"],
         label_visibility="collapsed"
     )
 
-# Load data if not already loaded
+# Carregar dados se ainda não estiverem carregados
 if st.session_state.data is None:
-    with st.spinner("Loading data for the first time..."):
+    with st.spinner("Carregando dados pela primeira vez..."):
         st.session_state.data = load_data()
         st.session_state.last_refresh = datetime.now()
 
-# Show data or error message
+# Mostrar dados ou mensagem de erro
 if st.session_state.data is not None:
     df = st.session_state.data
     
-    # Global Filters
-    with st.expander("Global Filters", expanded=True):
+    # Filtros Globais
+    with st.expander("Filtros Globais", expanded=True):
         col1, col2, col3 = st.columns(3)
         
-        # Company filter
+        # Filtro de empresa
         with col1:
-            all_companies = ["All"] + sorted(df["Company"].unique().tolist())
-            selected_company = st.selectbox("Company", all_companies)
+            all_companies = ["Todas"] + sorted(df["Company"].unique().tolist())
+            selected_company = st.selectbox("Empresa", all_companies)
         
-        # Type filter (Expense/Income)
+        # Filtro de tipo (Despesa/Receita)
         with col2:
-            all_types = ["All"] + sorted(df["Type"].unique().tolist())
-            selected_type = st.selectbox("Type", all_types)
+            all_types = ["Todos"] + sorted(df["Type"].unique().tolist())
+            selected_type = st.selectbox("Tipo", all_types)
             
-        # Work code filter
+        # Filtro de código de trabalho
         with col3:
-            all_works = ["All"] + sorted(df["Work"].unique().tolist())
-            selected_work = st.selectbox("Work Code", all_works)
+            all_works = ["Todos"] + sorted(df["Work"].unique().tolist())
+            selected_work = st.selectbox("Código de Trabalho", all_works)
     
-    # Apply global filters
+    # Aplicar filtros globais
     filtered_df = df.copy()
     
-    if selected_company != "All":
+    if selected_company != "Todas":
         filtered_df = filtered_df[filtered_df["Company"] == selected_company]
     
-    if selected_type != "All":
+    if selected_type != "Todos":
         filtered_df = filtered_df[filtered_df["Type"] == selected_type]
     
-    if selected_work != "All":
+    if selected_work != "Todos":
         filtered_df = filtered_df[filtered_df["Work"] == selected_work]
     
-    # Display selected view
-    if view == "Monthly Cash Flow":
+    # Exibir visualização selecionada
+    if view == "Fluxo de Caixa Mensal":
         show_monthly_view(filtered_df)
-    elif view == "Period Analysis":
+    elif view == "Análise por Período":
         show_period_view(filtered_df)
-    elif view == "Yearly Summary":
+    elif view == "Resumo Anual":
         show_yearly_view(filtered_df)
-    elif view == "Company Comparison":
+    elif view == "Comparação de Empresas":
         show_company_view(filtered_df)
     
 else:
@@ -191,6 +191,6 @@ else:
             3. Faça upload do arquivo usando o botão na barra lateral
         """)
 
-# Footer
+# Rodapé
 st.markdown("---")
-st.caption("Combrasen Group Financial Dashboard © 2023")
+st.caption("Painel Financeiro do Grupo Combrasen © 2023")
