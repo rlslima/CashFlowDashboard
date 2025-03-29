@@ -61,20 +61,33 @@ def convert_currency_to_float(value_str):
         float: Numerical value
     """
     try:
-        # Remove any currency symbols, commas, and spaces
-        clean_value = re.sub(r'[^\d.,\-]', '', str(value_str))
+        # Se já for um número, apenas converter
+        if isinstance(value_str, (int, float)):
+            return float(value_str)
         
-        # Replace comma with dot if needed
+        # Converter para string se não for
+        if not isinstance(value_str, str):
+            value_str = str(value_str)
+        
+        # Remover símbolos de moeda, espaços e caracteres não numéricos
+        clean_value = re.sub(r'[^\d.,\-]', '', value_str)
+        
+        # Tratar valores vazios
+        if not clean_value or clean_value == '.':
+            return 0.0
+        
+        # Identificar formato brasileiro (vírgula como separador decimal)
         if ',' in clean_value and '.' not in clean_value:
             clean_value = clean_value.replace(',', '.')
+        # Formato internacional com separador de milhar
         elif ',' in clean_value and '.' in clean_value:
-            # Handle cases where thousands are separated by comma
             clean_value = clean_value.replace(',', '')
         
-        # Convert to float
+        # Converter para float
         return float(clean_value)
-    except:
-        # Return 0 if conversion fails
+    except Exception as e:
+        # Debug mais detalhado do erro
+        print(f"Erro ao converter valor '{value_str}': {str(e)}")
         return 0.0
 
 def calculate_cash_flow_summary(df):

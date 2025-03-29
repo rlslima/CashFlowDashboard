@@ -39,6 +39,22 @@ def load_data():
         if raw_data is not None and not raw_data.empty:
             # Process the data
             processed_data = process_data(raw_data)
+            
+            # Para debug: mostrar os dados brutos e processados
+            st.sidebar.expander("Debug Raw Data", expanded=False).write(f"""
+            Dados brutos: {raw_data.shape[0]} linhas
+            Colunas: {raw_data.columns.tolist()}
+            Primeiros valores: {str(raw_data.head(3))}
+            """)
+            
+            if not processed_data.empty:
+                st.sidebar.expander("Debug Processed Data", expanded=False).write(f"""
+                Processados: {processed_data.shape[0]} linhas
+                Soma de valores: {processed_data['Value'].sum():.2f}
+                Min data: {processed_data['Date'].min()}
+                Max data: {processed_data['Date'].max()}
+                """)
+            
             return processed_data
         else:
             st.error("Failed to load data from Google Sheets or the sheet is empty.")
@@ -47,20 +63,43 @@ def load_data():
         st.error(f"Error loading data: {str(e)}")
         return None
 
-# Sidebar - Data Refresh
+# Sidebar - Data Refresh & Upload
 with st.sidebar:
     st.title("Dashboard Controls")
     
-    # Refresh data button
-    if st.button("Refresh Data", use_container_width=True):
-        with st.spinner("Refreshing data..."):
+    # Adicionar opção para carregar arquivo local
+    uploaded_file = st.file_uploader("Upload planilha Excel", type=['xlsx', 'xls'])
+    
+    if uploaded_file is not None:
+        try:
+            with st.spinner("Carregando arquivo..."):
+                # Ler o arquivo Excel
+                raw_data = pd.read_excel(uploaded_file, engine='openpyxl')
+                
+                # Processar os dados
+                processed_data = process_data(raw_data)
+                
+                # Atualizar os dados na sessão
+                st.session_state.data = processed_data
+                st.session_state.last_refresh = datetime.now()
+                
+            st.success("Arquivo carregado com sucesso!")
+        except Exception as e:
+            st.error(f"Erro ao carregar o arquivo: {str(e)}")
+    
+    # Separador
+    st.markdown("---")
+    
+    # Refresh data button (Google Sheets)
+    if st.button("Atualizar via Google Sheets", use_container_width=True):
+        with st.spinner("Atualizando dados..."):
             st.session_state.data = load_data()
             st.session_state.last_refresh = datetime.now()
-        st.success("Data refreshed successfully!")
+        st.success("Dados atualizados com sucesso!")
     
     # Show last refresh time
     if st.session_state.last_refresh:
-        st.info(f"Last refreshed: {st.session_state.last_refresh.strftime('%Y-%m-%d %H:%M:%S')}")
+        st.info(f"Última atualização: {st.session_state.last_refresh.strftime('%Y-%m-%d %H:%M:%S')}")
     
     st.markdown("---")
     
@@ -124,16 +163,33 @@ if st.session_state.data is not None:
         show_company_view(filtered_df)
     
 else:
-    st.error("No data available. Please check the connection to Google Sheets or try refreshing.")
+    st.error("Não há dados disponíveis. Por favor, verifique a conexão com o Google Sheets ou tente atualizar.")
+    
     st.info("""
-        Expected data format:
-        - Company: e.g. "Range 1"
-        - Type: "Expense" or "Income"
-        - Work: e.g. "INC01"
-        - Supplier/Client: e.g. "35 - JOSE ELIAS FERNANDES JÚNIOR"
-        - Value: e.g. "35,600.00"
-        - Date: e.g. "03/24/2025"
+        Formato de dados esperado:
+        - Company: ex. "Empresa A"
+        - Type: "Expense" ou "Income"
+        - Work: ex. "WRK01"
+        - Supplier/Client: ex. "Fornecedor 1"
+        - Value: ex. "35600.00"
+        - Date: ex. "24/03/2025"
     """)
+    
+    # Oferecer um arquivo de exemplo para download
+    if os.path.exists("example_financial_data.xlsx"):
+        with open("example_financial_data.xlsx", "rb") as f:
+            st.download_button(
+                label="Baixar arquivo de exemplo",
+                data=f,
+                file_name="example_financial_data.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        
+        st.info("""
+            1. Baixe o arquivo de exemplo acima
+            2. Use-o como modelo para preparar seus dados
+            3. Faça upload do arquivo usando o botão na barra lateral
+        """)
 
 # Footer
 st.markdown("---")
