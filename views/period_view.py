@@ -37,8 +37,8 @@ def show_period_view(df):
             date_range = st.date_input(
                 "Select Date Range",
                 value=(
-                    (datetime.now() - timedelta(days=90)).date(),
-                    datetime.now().date()
+                    min_date,
+                    max_date
                 ),
                 min_value=min_date,
                 max_value=max_date
@@ -75,7 +75,9 @@ def show_period_view(df):
             start_date = f"{selected_year}-10-01"
             end_date = f"{selected_year}-12-31"
             
-        filtered_df = df[(df["Date"] >= start_date) & (df["Date"] <= end_date)]
+        start_date_dt = pd.to_datetime(start_date)
+        end_date_dt = pd.to_datetime(end_date)
+        filtered_df = df[(df["Date"] >= start_date_dt) & (df["Date"] <= end_date_dt)]
         period_title = f"{quarter} {selected_year}"
     
     elif period_type == "Half-Year":
@@ -95,7 +97,9 @@ def show_period_view(df):
             start_date = f"{selected_year}-07-01"
             end_date = f"{selected_year}-12-31"
             
-        filtered_df = df[(df["Date"] >= start_date) & (df["Date"] <= end_date)]
+        start_date_dt = pd.to_datetime(start_date)
+        end_date_dt = pd.to_datetime(end_date)
+        filtered_df = df[(df["Date"] >= start_date_dt) & (df["Date"] <= end_date_dt)]
         period_title = f"{half} {selected_year}"
     
     else:  # Custom Months
