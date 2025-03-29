@@ -1,0 +1,11 @@
+Company,Type,Work,Supplier/Client,Value,Date
+Empresa B,Expense,PRJ01,Parceiro X,18588.92,2025-02-03 22:26:45.558
+Empresa C,Expense,SRV01,Fornecedor 2,20434.74,2025-01-24 22:26:45.558
+Empresa B,Income,WRK03,Cliente A,41151.79,2025-02-09 22:26:45.558
+Empresa B,Income,WRK03,Contratante Z,22031.99,2025-03-04 22:26:45.558
+Empresa C,Expense,SRV01,Parceiro Y,6019.79,2025-02-25 22:26:45.558
+Empresa C,Expense,SRV01,Parceiro Y,29863.43,2025-01-29 22:26:45.558
+Empresa C,Income,SRV01,Cliente A,1522.65,2025-02-22 22:26:45.558
+Empresa A,Income,SRV01,Cliente C,48673.02,2025-03-05 22:26:45.558
+Empresa A,Expense,WRK01,Fornecedor 2,20167.83,2025-01-03 22:26:45.558
+Empresa B,Income,PRJ02,Cliente A,27185.32,2025-03-03 22:26:45.558

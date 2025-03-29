@@ -35,9 +35,16 @@ def process_data(df):
     print("Valores após conversão:")
     print(df_processed["Value"].head(10).tolist())
     
-    # Processar coluna Type - garantir que valores 'Expense' sejam negativos
+    # Processar coluna Type - garantir que valores 'Expense' sejam negativos e traduzir tipos
+    # Primeiro traduzir os tipos para português
+    df_processed["Type"] = df_processed["Type"].replace({
+        "Income": "Receita",
+        "Expense": "Despesa"
+    })
+    
+    # Depois aplicar os valores de sinal
     df_processed["Signed Value"] = df_processed.apply(
-        lambda row: -row["Value"] if row["Type"] == "Expense" else row["Value"], 
+        lambda row: -row["Value"] if row["Type"] == "Despesa" else row["Value"], 
         axis=1
     )
     
@@ -137,11 +144,11 @@ def calculate_cash_flow_summary(df):
     summary = {}
     
     # Total de receitas
-    income_df = df[df["Type"] == "Income"]
+    income_df = df[df["Type"] == "Receita"]
     summary["total_income"] = income_df["Value"].sum()
     
     # Total de despesas
-    expense_df = df[df["Type"] == "Expense"]
+    expense_df = df[df["Type"] == "Despesa"]
     summary["total_expenses"] = expense_df["Value"].sum()
     
     # Fluxo de caixa líquido
@@ -151,8 +158,8 @@ def calculate_cash_flow_summary(df):
     current_month = datetime.now().strftime("%Y-%m")
     current_month_df = df[df["Period"] == current_month]
     
-    income_month = current_month_df[current_month_df["Type"] == "Income"]["Value"].sum()
-    expense_month = current_month_df[current_month_df["Type"] == "Expense"]["Value"].sum()
+    income_month = current_month_df[current_month_df["Type"] == "Receita"]["Value"].sum()
+    expense_month = current_month_df[current_month_df["Type"] == "Despesa"]["Value"].sum()
     summary["current_month_net"] = income_month - expense_month
     
     # Adicionar quantidade de transações para o resumo
