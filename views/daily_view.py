@@ -1,9 +1,16 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import calendar
+import io
+import base64
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from utils.data_processor import format_currency_brl
 
 def show_daily_view(df):
@@ -23,23 +30,45 @@ def show_daily_view(df):
     min_date = df["Date"].min()
     max_date = df["Date"].max()
     
+    # Determinar a data atual (ou a mais próxima com dados)
+    today = date.today()
+    # Se a data atual é maior que a data máxima nos dados, usar a data máxima
+    if today > max_date.date():
+        current_date = max_date.date()
+    # Se a data atual é menor que a data mínima nos dados, usar a data mínima
+    elif today < min_date.date():
+        current_date = min_date.date()
+    else:
+        # Encontrar a data mais próxima da atual que tenha dados
+        dates = sorted(df["Date"].dt.date.unique())
+        current_date = min(dates, key=lambda x: abs((x - today).days))
+    
+    # Encontrar uma data futura dentro dos próximos 10 dias que tenha dados
+    # Se não houver, usar a data máxima disponível
+    future_dates = [d for d in df["Date"].dt.date.unique() if d > current_date]
+    if future_dates and len(future_dates) > 0:
+        # Pegar no máximo 10 dias à frente, se disponível
+        end_date_default = min(future_dates[min(9, len(future_dates)-1)], max_date.date())
+    else:
+        end_date_default = max_date.date()
+    
     # Opções de seleção de período
     col1, col2 = st.columns(2)
     
     with col1:
         start_date = st.date_input(
             "Data Inicial",
-            value=max_date - timedelta(days=30),
-            min_value=min_date,
-            max_value=max_date
+            value=current_date,
+            min_value=min_date.date(),
+            max_value=max_date.date()
         )
     
     with col2:
         end_date = st.date_input(
             "Data Final",
-            value=max_date,
-            min_value=min_date,
-            max_value=max_date
+            value=end_date_default,
+            min_value=min_date.date(),
+            max_value=max_date.date()
         )
     
     # Filtrar dados pelo intervalo de datas selecionado
@@ -151,8 +180,20 @@ def show_daily_view(df):
             # Total de receitas por data
             income_totals_by_date = income_df.groupby(income_df["Date"].dt.date)["Value"].sum()
             
-            # Linhas para cada obra (receitas)
+            # Verificar quais obras têm pelo menos um valor não-zero para receitas
+            obras_com_receita = []
             for obra in obras:
+                has_value = False
+                for date in unique_dates:
+                    if date in income_by_date_work.index and obra in income_by_date_work.columns:
+                        if income_by_date_work.loc[date, obra] > 0:
+                            has_value = True
+                            break
+                if has_value:
+                    obras_com_receita.append(obra)
+            
+            # Linhas para cada obra com receita (removendo linhas totalmente zeradas)
+            for obra in obras_com_receita:
                 html_table += f"<tr><td style='text-align:left;'>{obra}</td>"
                 
                 for date in unique_dates:
@@ -188,8 +229,20 @@ def show_daily_view(df):
             # Total de despesas por data
             expense_totals_by_date = expense_df.groupby(expense_df["Date"].dt.date)["Value"].sum()
             
-            # Linhas para cada obra (despesas)
+            # Verificar quais obras têm pelo menos um valor não-zero para despesas
+            obras_com_despesa = []
             for obra in obras:
+                has_value = False
+                for date in unique_dates:
+                    if date in expense_by_date_work.index and obra in expense_by_date_work.columns:
+                        if expense_by_date_work.loc[date, obra] > 0:
+                            has_value = True
+                            break
+                if has_value:
+                    obras_com_despesa.append(obra)
+            
+            # Linhas para cada obra com despesa (removendo linhas totalmente zeradas)
+            for obra in obras_com_despesa:
                 html_table += f"<tr><td style='text-align:left;'>{obra}</td>"
                 
                 for date in unique_dates:
@@ -230,14 +283,175 @@ def show_daily_view(df):
             # Exibir a tabela HTML
             st.markdown(html_table, unsafe_allow_html=True)
             
-            # Adicionar botão para baixar como Excel
-            st.download_button(
-                label="Baixar Tabela como Excel",
-                data="Funcionalidade de download será implementada",
-                file_name="fluxo_caixa_diario.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                disabled=True  # Temporariamente desativado
-            )
+            # Adicionar função para gerar PDF
+            def generate_pdf():
+                # Configurar documento PDF
+                buffer = io.BytesIO()
+                doc = SimpleDocTemplate(buffer, pagesize=landscape(A4))
+                elements = []
+                
+                # Estilos
+                styles = getSampleStyleSheet()
+                style_title = ParagraphStyle(
+                    name='TitleStyle',
+                    parent=styles['Heading1'],
+                    fontSize=16,
+                    alignment=1,  # Centralizado
+                    spaceAfter=12
+                )
+                style_header = ParagraphStyle(
+                    name='HeaderStyle',
+                    parent=styles['Heading2'],
+                    fontSize=12,
+                    alignment=1,  # Centralizado
+                    spaceAfter=10
+                )
+                
+                # Título e Cabeçalho
+                title = Paragraph(f"Combrasen Group - Fluxo de Caixa Diário", style_title)
+                subtitle = Paragraph(f"Período: {start_date.strftime('%d/%m/%Y')} a {end_date.strftime('%d/%m/%Y')}", style_header)
+                elements.append(title)
+                elements.append(subtitle)
+                elements.append(Spacer(1, 10))
+                
+                # Dados para a tabela
+                table_data = []
+                
+                # Cabeçalho da tabela
+                header_row = ["OBRA"]
+                for date in unique_dates:
+                    header_row.append(date.strftime("%d/%m/%Y"))
+                table_data.append(header_row)
+                
+                # Receitas
+                table_data.append(["RECEITAS"] + ["" for _ in range(len(unique_dates))])
+                
+                # Dados de receitas
+                for obra in obras_com_receita:
+                    row = [obra]
+                    for date in unique_dates:
+                        value = 0
+                        if date in income_by_date_work.index and obra in income_by_date_work.columns:
+                            value = income_by_date_work.loc[date, obra]
+                        row.append(format_currency_brl(value) if value > 0 else "R$ 0,00")
+                    table_data.append(row)
+                
+                # Total de receitas
+                row_total_income = ["TOTAL RECEITA"]
+                for date in unique_dates:
+                    total_value = income_totals_by_date.get(date, 0)
+                    row_total_income.append(format_currency_brl(total_value) if total_value > 0 else "R$ 0,00")
+                table_data.append(row_total_income)
+                
+                # Despesas
+                table_data.append(["DESPESAS"] + ["" for _ in range(len(unique_dates))])
+                
+                # Dados de despesas
+                for obra in obras_com_despesa:
+                    row = [obra]
+                    for date in unique_dates:
+                        value = 0
+                        if date in expense_by_date_work.index and obra in expense_by_date_work.columns:
+                            value = expense_by_date_work.loc[date, obra]
+                        row.append(format_currency_brl(value) if value > 0 else "R$ 0,00")
+                    table_data.append(row)
+                
+                # Total de despesas
+                row_total_expense = ["TOTAL DESPESA"]
+                for date in unique_dates:
+                    total_value = expense_totals_by_date.get(date, 0)
+                    row_total_expense.append(format_currency_brl(total_value) if total_value > 0 else "R$ 0,00")
+                table_data.append(row_total_expense)
+                
+                # Saldo
+                row_balance = ["SALDO"]
+                for date in unique_dates:
+                    income_value = income_totals_by_date.get(date, 0)
+                    expense_value = expense_totals_by_date.get(date, 0)
+                    balance = income_value - expense_value
+                    row_balance.append(format_currency_brl(balance))
+                table_data.append(row_balance)
+                
+                # Criar tabela para PDF
+                # Ajustar tamanho da coluna automaticamente
+                col_widths = [120] + [90] * len(unique_dates)  # Primeira coluna maior para o nome da obra
+                
+                # Criar a tabela
+                table = Table(table_data, colWidths=col_widths)
+                
+                # Estilos da tabela
+                style = TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),  # Cabeçalho
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+                    ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 10),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                    ('BACKGROUND', (0, 1), (-1, 1), colors.lightgreen),  # Seção de receitas
+                    ('FONTNAME', (0, 1), (-1, 1), 'Helvetica-Bold'),
+                    ('ALIGN', (0, 1), (0, 1), 'LEFT'),
+                    ('SPAN', (0, 1), (-1, 1)),  # Mesclar células do cabeçalho de receitas
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+                ])
+                
+                # Índice da linha de total de receitas
+                total_income_row = 2 + len(obras_com_receita)
+                # Índice da linha de cabeçalho de despesas
+                expense_header_row = total_income_row + 1
+                # Índice da linha de total de despesas
+                total_expense_row = expense_header_row + 1 + len(obras_com_despesa)
+                # Índice da linha de saldo
+                balance_row = total_expense_row + 1
+                
+                # Estilo para total de receitas
+                style.add('BACKGROUND', (0, total_income_row), (-1, total_income_row), colors.lightyellow)
+                style.add('FONTNAME', (0, total_income_row), (-1, total_income_row), 'Helvetica-Bold')
+                
+                # Estilo para cabeçalho de despesas
+                style.add('BACKGROUND', (0, expense_header_row), (-1, expense_header_row), colors.lightcoral)
+                style.add('FONTNAME', (0, expense_header_row), (-1, expense_header_row), 'Helvetica-Bold')
+                style.add('ALIGN', (0, expense_header_row), (0, expense_header_row), 'LEFT')
+                style.add('SPAN', (0, expense_header_row), (-1, expense_header_row))  # Mesclar células
+                
+                # Estilo para total de despesas
+                style.add('BACKGROUND', (0, total_expense_row), (-1, total_expense_row), colors.lightyellow)
+                style.add('FONTNAME', (0, total_expense_row), (-1, total_expense_row), 'Helvetica-Bold')
+                
+                # Estilo para saldo
+                style.add('BACKGROUND', (0, balance_row), (-1, balance_row), colors.lightyellow)
+                style.add('FONTNAME', (0, balance_row), (-1, balance_row), 'Helvetica-Bold')
+                
+                # Aplicar estilos
+                table.setStyle(style)
+                elements.append(table)
+                
+                # Construir o documento
+                doc.build(elements)
+                
+                buffer.seek(0)
+                return buffer.getvalue()
+            
+            # Botões para download
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Botão para baixar como PDF
+                st.download_button(
+                    label="Baixar como PDF",
+                    data=generate_pdf(),
+                    file_name=f"fluxo_caixa_{start_date.strftime('%d%m%Y')}_a_{end_date.strftime('%d%m%Y')}.pdf",
+                    mime="application/pdf"
+                )
+            
+            with col2:
+                # Adicionar botão para baixar como Excel (a ser implementado)
+                st.download_button(
+                    label="Baixar como Excel",
+                    data="Funcionalidade em desenvolvimento",
+                    file_name="fluxo_caixa_diario.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    disabled=True  # Temporariamente desativado
+                )
             
     # Criar tabelas e gráficos com base na seleção
     elif view_option == "Análise por Dia":
