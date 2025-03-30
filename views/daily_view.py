@@ -60,19 +60,187 @@ def show_daily_view(df):
     # Formatação visual com cores
     receita_color = "#00CC96"  # Verde
     despesa_color = "#EF553B"  # Vermelho
+    background_header_receita = "#D7FFE5"  # Verde claro
+    background_header_despesa = "#FFE5E5"  # Vermelho claro
+    background_total = "#FFFFCC"  # Amarelo claro
     
     # Obter todas as Obras únicas
-    obras = filtered_df["Work"].unique()
+    obras = sorted(filtered_df["Work"].unique())
     
     # Interface para seleção de como agrupar os dados
-    group_by = st.radio(
-        "Agrupar por:",
-        options=["Dia", "Obra"],
+    view_option = st.radio(
+        "Tipo de visualização:",
+        options=["Tabela de Fluxo de Caixa", "Análise por Dia", "Análise por Obra"],
         horizontal=True
     )
     
+    # Criar visualização em formato de tabela (semelhante à imagem)
+    if view_option == "Tabela de Fluxo de Caixa":
+        # Determine datas únicas no intervalo selecionado
+        unique_dates = sorted(filtered_df["Date"].dt.date.unique())
+        
+        if len(unique_dates) == 0:
+            st.warning("Não há dados para exibir no período selecionado.")
+            return
+            
+        # Criar dataframe para a tabela de fluxo de caixa
+        st.markdown("### Fluxo de Caixa Diário")
+        
+        # Gerar a tabela de fluxo de caixa no estilo da imagem
+        with st.container():
+            # Renderizar a tabela como HTML para maior controle visual
+            html_table = """
+            <style>
+            .cash-flow-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-family: Arial, sans-serif;
+                font-size: 14px;
+            }
+            .cash-flow-table th, .cash-flow-table td {
+                border: 1px solid #ddd;
+                padding: 6px;
+                text-align: center;
+            }
+            .table-header {
+                background-color: #f2f2f2;
+                font-weight: bold;
+            }
+            .income-header {
+                background-color: """ + background_header_receita + """;
+                font-weight: bold;
+            }
+            .expense-header {
+                background-color: """ + background_header_despesa + """;
+                font-weight: bold;
+            }
+            .total-row {
+                background-color: """ + background_total + """;
+                font-weight: bold;
+            }
+            .balance-row {
+                background-color: """ + background_total + """;
+                font-weight: bold;
+                color: #009900;
+            }
+            .negative-balance {
+                color: #cc0000;
+            }
+            </style>
+            
+            <table class="cash-flow-table">
+                <tr class="table-header">
+                    <th>OBRA</th>
+            """
+            
+            # Adicionar cabeçalhos de data
+            for date in unique_dates:
+                date_str = date.strftime("%d/%m/%Y")
+                html_table += f"<th>{date_str}</th>"
+            
+            html_table += """
+                </tr>
+                <tr class="income-header">
+                    <td colspan="{}" style="text-align:left;">RECEITAS</td>
+                </tr>
+            """.format(len(unique_dates) + 1)
+            
+            # Dados de receita por obra
+            income_by_date_work = income_df.groupby([income_df["Date"].dt.date, "Work"])["Value"].sum().unstack(fill_value=0)
+            
+            # Total de receitas por data
+            income_totals_by_date = income_df.groupby(income_df["Date"].dt.date)["Value"].sum()
+            
+            # Linhas para cada obra (receitas)
+            for obra in obras:
+                html_table += f"<tr><td style='text-align:left;'>{obra}</td>"
+                
+                for date in unique_dates:
+                    value = 0
+                    if date in income_by_date_work.index and obra in income_by_date_work.columns:
+                        value = income_by_date_work.loc[date, obra]
+                    
+                    value_str = format_currency_brl(value) if value > 0 else "R$ 0,00"
+                    html_table += f"<td>{value_str}</td>"
+                
+                html_table += "</tr>"
+            
+            # Linha de total de receitas
+            html_table += "<tr class='total-row'><td style='text-align:left;'>TOTAL RECEITA</td>"
+            
+            for date in unique_dates:
+                total_value = income_totals_by_date.get(date, 0)
+                total_str = format_currency_brl(total_value) if total_value > 0 else "R$ 0,00"
+                html_table += f"<td>{total_str}</td>"
+            
+            html_table += "</tr>"
+            
+            # Cabeçalho das despesas
+            html_table += """
+                <tr class="expense-header">
+                    <td colspan="{}" style="text-align:left;">DESPESAS</td>
+                </tr>
+            """.format(len(unique_dates) + 1)
+            
+            # Dados de despesa por obra
+            expense_by_date_work = expense_df.groupby([expense_df["Date"].dt.date, "Work"])["Value"].sum().unstack(fill_value=0)
+            
+            # Total de despesas por data
+            expense_totals_by_date = expense_df.groupby(expense_df["Date"].dt.date)["Value"].sum()
+            
+            # Linhas para cada obra (despesas)
+            for obra in obras:
+                html_table += f"<tr><td style='text-align:left;'>{obra}</td>"
+                
+                for date in unique_dates:
+                    value = 0
+                    if date in expense_by_date_work.index and obra in expense_by_date_work.columns:
+                        value = expense_by_date_work.loc[date, obra]
+                    
+                    value_str = format_currency_brl(value) if value > 0 else "R$ 0,00"
+                    html_table += f"<td>{value_str}</td>"
+                
+                html_table += "</tr>"
+            
+            # Linha de total de despesas
+            html_table += "<tr class='total-row'><td style='text-align:left;'>TOTAL DESPESA</td>"
+            
+            for date in unique_dates:
+                total_value = expense_totals_by_date.get(date, 0)
+                total_str = format_currency_brl(total_value) if total_value > 0 else "R$ 0,00"
+                html_table += f"<td>{total_str}</td>"
+            
+            html_table += "</tr>"
+            
+            # Linha de saldo diário
+            html_table += "<tr class='balance-row'><td style='text-align:left;'>SALDO</td>"
+            
+            for date in unique_dates:
+                income_value = income_totals_by_date.get(date, 0)
+                expense_value = expense_totals_by_date.get(date, 0)
+                balance = income_value - expense_value
+                
+                # Aplicar classe CSS para saldo negativo
+                class_style = " class='negative-balance'" if balance < 0 else ""
+                balance_str = format_currency_brl(balance)
+                html_table += f"<td{class_style}>{balance_str}</td>"
+            
+            html_table += "</tr></table>"
+            
+            # Exibir a tabela HTML
+            st.markdown(html_table, unsafe_allow_html=True)
+            
+            # Adicionar botão para baixar como Excel
+            st.download_button(
+                label="Baixar Tabela como Excel",
+                data="Funcionalidade de download será implementada",
+                file_name="fluxo_caixa_diario.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                disabled=True  # Temporariamente desativado
+            )
+            
     # Criar tabelas e gráficos com base na seleção
-    if group_by == "Dia":
+    elif view_option == "Análise por Dia":
         # Agrupar por dia
         daily_income = income_df.groupby(["Date", "Work"])["Value"].sum().reset_index()
         daily_expense = expense_df.groupby(["Date", "Work"])["Value"].sum().reset_index()
