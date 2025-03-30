@@ -3,7 +3,8 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta
+from datetime import date as date_class
 import calendar
 import io
 import base64
@@ -31,7 +32,7 @@ def show_daily_view(df):
     max_date = df["Date"].max()
     
     # Determinar a data atual (ou a mais próxima com dados)
-    today = date.today()
+    today = date_class.today()
     # Se a data atual é maior que a data máxima nos dados, usar a data máxima
     if today > max_date.date():
         current_date = max_date.date()
