@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
+from utils.data_processor import format_currency_brl
 
 def show_yearly_view(df):
     """
@@ -53,15 +54,15 @@ def show_yearly_view(df):
         metrics_col1, metrics_col2, metrics_col3, metrics_col4 = st.columns(4)
         
         with metrics_col1:
-            st.metric("Receita Total", f"R$ {total_income:,.2f}")
+            st.metric("Receita Total", format_currency_brl(total_income))
         
         with metrics_col2:
-            st.metric("Despesas Totais", f"R$ {total_expense:,.2f}")
+            st.metric("Despesas Totais", format_currency_brl(total_expense))
         
         with metrics_col3:
             st.metric(
                 "Fluxo de Caixa Líquido", 
-                f"R$ {net_cashflow:,.2f}",
+                format_currency_brl(net_cashflow),
                 delta=f"{(net_cashflow/total_income*100 if total_income else 0):.1f}%" if total_income else None
             )
         
@@ -138,9 +139,9 @@ def show_yearly_view(df):
             
             # Format the dataframe for display
             display_df = quarterly_data.copy()
-            display_df["Receita"] = display_df["Receita"].apply(lambda x: f"R$ {x:,.2f}")
-            display_df["Despesa"] = display_df["Despesa"].apply(lambda x: f"R$ {x:,.2f}")
-            display_df["Net"] = display_df["Net"].apply(lambda x: f"R$ {x:,.2f}")
+            display_df["Receita"] = display_df["Receita"].apply(format_currency_brl)
+            display_df["Despesa"] = display_df["Despesa"].apply(format_currency_brl)
+            display_df["Net"] = display_df["Net"].apply(format_currency_brl)
             
             # Renomear colunas para exibição
             display_df = display_df[["Quarter", "Receita", "Despesa", "Net"]].rename(columns={
@@ -348,9 +349,9 @@ def show_yearly_view(df):
         
         # Create yearly metrics table
         yearly_data["Year"] = yearly_data["Year"].astype(str)
-        yearly_data["Receita"] = yearly_data["Receita"].apply(lambda x: f"R$ {x:,.2f}")
-        yearly_data["Despesa"] = yearly_data["Despesa"].apply(lambda x: f"R$ {x:,.2f}")
-        yearly_data["Net"] = yearly_data["Net"].apply(lambda x: f"R$ {x:,.2f}")
+        yearly_data["Receita"] = yearly_data["Receita"].apply(format_currency_brl)
+        yearly_data["Despesa"] = yearly_data["Despesa"].apply(format_currency_brl)
+        yearly_data["Net"] = yearly_data["Net"].apply(format_currency_brl)
         
         # Renomear colunas para exibição
         yearly_data = yearly_data[["Year", "Receita", "Despesa", "Net"]].rename(columns={

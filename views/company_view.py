@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
+from utils.data_processor import format_currency_brl
 
 def show_company_view(df):
     """
@@ -11,7 +12,7 @@ def show_company_view(df):
     Args:
         df (pandas.DataFrame): Processed and filtered DataFrame
     """
-    st.header("Company Comparison View")
+    st.header("Comparação entre Empresas")
     
     if df.empty:
         st.warning("No data available with the current filters.")
@@ -39,15 +40,15 @@ def show_company_view(df):
             col1, col2, col3 = st.columns(3)
             
             with col1:
-                st.metric("Total Income", f"${total_income:,.2f}")
+                st.metric("Receita Total", format_currency_brl(total_income))
             
             with col2:
-                st.metric("Total Expenses", f"${total_expense:,.2f}")
+                st.metric("Despesas Totais", format_currency_brl(total_expense))
             
             with col3:
                 st.metric(
-                    "Net Cash Flow", 
-                    f"${net_cashflow:,.2f}",
+                    "Fluxo de Caixa Líquido", 
+                    format_currency_brl(net_cashflow),
                     delta=f"{(net_cashflow/total_income*100 if total_income else 0):.1f}%" if total_income else None
                 )
         
@@ -197,12 +198,21 @@ def show_company_view(df):
         
         # Summary table
         display_df = company_data.copy()
-        display_df["Income"] = display_df["Income"].apply(lambda x: f"${x:,.2f}")
-        display_df["Expense"] = display_df["Expense"].apply(lambda x: f"${x:,.2f}")
-        display_df["Net"] = display_df["Net"].apply(lambda x: f"${x:,.2f}")
+        display_df["Income"] = display_df["Income"].apply(format_currency_brl)
+        display_df["Expense"] = display_df["Expense"].apply(format_currency_brl)
+        display_df["Net"] = display_df["Net"].apply(format_currency_brl)
         display_df["Profit Margin"] = display_df["Profit Margin"].apply(lambda x: f"{x:.2f}%")
         
-        st.dataframe(display_df[["Company", "Income", "Expense", "Net", "Profit Margin"]], use_container_width=True)
+        # Rename columns
+        display_df = display_df[["Company", "Income", "Expense", "Net", "Profit Margin"]].rename(columns={
+            "Company": "Empresa", 
+            "Income": "Receitas", 
+            "Expense": "Despesas", 
+            "Net": "Líquido", 
+            "Profit Margin": "Margem de Lucro"
+        })
+        
+        st.dataframe(display_df, use_container_width=True)
     
     with tabs[1]:
         # Income comparison
@@ -400,9 +410,14 @@ def show_company_view(df):
         income_rank = income_rank.reset_index().rename(columns={"index": "Rank"})
         
         income_display = income_rank[["Rank", "Company", "Income"]].copy()
-        income_display["Income"] = income_display["Income"].apply(lambda x: f"${x:,.2f}")
+        income_display["Income"] = income_display["Income"].apply(format_currency_brl)
+        income_display = income_display.rename(columns={
+            "Rank": "Posição",
+            "Company": "Empresa",
+            "Income": "Receita"
+        })
         
-        st.markdown("#### Income Ranking")
+        st.markdown("#### Ranking de Receitas")
         st.dataframe(income_display, use_container_width=True)
     
     with col2:
@@ -412,9 +427,14 @@ def show_company_view(df):
         net_rank = net_rank.reset_index().rename(columns={"index": "Rank"})
         
         net_display = net_rank[["Rank", "Company", "Net"]].copy()
-        net_display["Net"] = net_display["Net"].apply(lambda x: f"${x:,.2f}")
+        net_display["Net"] = net_display["Net"].apply(format_currency_brl)
+        net_display = net_display.rename(columns={
+            "Rank": "Posição",
+            "Company": "Empresa",
+            "Net": "Fluxo Líquido"
+        })
         
-        st.markdown("#### Net Cash Flow Ranking")
+        st.markdown("#### Ranking de Fluxo de Caixa Líquido")
         st.dataframe(net_display, use_container_width=True)
     
     with col3:
@@ -425,6 +445,11 @@ def show_company_view(df):
         
         margin_display = margin_rank[["Rank", "Company", "Profit Margin"]].copy()
         margin_display["Profit Margin"] = margin_display["Profit Margin"].apply(lambda x: f"{x:.2f}%")
+        margin_display = margin_display.rename(columns={
+            "Rank": "Posição",
+            "Company": "Empresa",
+            "Profit Margin": "Margem de Lucro"
+        })
         
-        st.markdown("#### Profit Margin Ranking")
+        st.markdown("#### Ranking de Margem de Lucro")
         st.dataframe(margin_display, use_container_width=True)

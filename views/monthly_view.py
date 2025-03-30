@@ -4,6 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 import calendar
+from utils.data_processor import format_currency_brl
 
 def show_monthly_view(df):
     """
@@ -108,9 +109,9 @@ def show_monthly_view(df):
         total_expense = monthly_df["Expense"].sum()
         total_net = total_income - total_expense
         
-        st.metric("Receita Total", f"R$ {total_income:,.2f}")
-        st.metric("Despesas Totais", f"R$ {total_expense:,.2f}")
-        st.metric("Fluxo de Caixa Líquido", f"R$ {total_net:,.2f}", delta=f"{(total_net/total_income*100 if total_income else 0):.1f}%" if total_income else None)
+        st.metric("Receita Total", format_currency_brl(total_income))
+        st.metric("Despesas Totais", format_currency_brl(total_expense))
+        st.metric("Fluxo de Caixa Líquido", format_currency_brl(total_net), delta=f"{(total_net/total_income*100 if total_income else 0):.1f}%" if total_income else None)
         
         # Monthly average metrics
         st.subheader("Médias Mensais")
@@ -118,18 +119,18 @@ def show_monthly_view(df):
         avg_expense = total_expense / 12
         avg_net = total_net / 12
         
-        st.metric("Receita Média", f"R$ {avg_income:,.2f}")
-        st.metric("Despesa Média", f"R$ {avg_expense:,.2f}")
-        st.metric("Fluxo Líquido Médio", f"R$ {avg_net:,.2f}")
+        st.metric("Receita Média", format_currency_brl(avg_income))
+        st.metric("Despesa Média", format_currency_brl(avg_expense))
+        st.metric("Fluxo Líquido Médio", format_currency_brl(avg_net))
     
     # Monthly breakdown table
     st.subheader("Detalhamento Mensal")
     
     # Format the dataframe for display
     display_df = monthly_df.copy()
-    display_df["Income"] = display_df["Income"].apply(lambda x: f"R$ {x:,.2f}")
-    display_df["Expense"] = display_df["Expense"].apply(lambda x: f"R$ {x:,.2f}")
-    display_df["Net"] = display_df["Net"].apply(lambda x: f"R$ {x:,.2f}")
+    display_df["Income"] = display_df["Income"].apply(format_currency_brl)
+    display_df["Expense"] = display_df["Expense"].apply(format_currency_brl)
+    display_df["Net"] = display_df["Net"].apply(format_currency_brl)
     
     # Rename display columns
     display_df = display_df[["Month Name", "Income", "Expense", "Net"]].rename(columns={

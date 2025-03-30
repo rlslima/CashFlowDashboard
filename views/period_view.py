@@ -4,6 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import calendar
+from utils.data_processor import format_currency_brl
 
 def show_period_view(df):
     """
@@ -161,15 +162,15 @@ def show_period_view(df):
         net_cashflow = total_income - total_expense
         
         with col1:
-            st.metric("Receitas Totais", f"R$ {total_income:,.2f}")
+            st.metric("Receitas Totais", format_currency_brl(total_income))
         
         with col2:
-            st.metric("Despesas Totais", f"R$ {total_expense:,.2f}")
+            st.metric("Despesas Totais", format_currency_brl(total_expense))
         
         with col3:
             st.metric(
                 "Fluxo de Caixa Líquido", 
-                f"R$ {net_cashflow:,.2f}",
+                format_currency_brl(net_cashflow),
                 delta=f"{(net_cashflow/total_income*100 if total_income else 0):.1f}%" if total_income else None
             )
         
@@ -341,7 +342,7 @@ def show_period_view(df):
     # Formatar o dataframe para exibição
     display_df = filtered_df.copy()
     display_df["Date"] = display_df["Date"].dt.strftime("%d/%m/%Y")
-    display_df["Value"] = display_df["Value"].apply(lambda x: f"R$ {x:,.2f}")
+    display_df["Value"] = display_df["Value"].apply(format_currency_brl)
     
     # Mostrar tabela com colunas selecionadas
     columns_to_show = ["Date", "Company", "Type", "Work", "Supplier/Client", "Value"]

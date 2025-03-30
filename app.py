@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 import os
 from utils.google_sheets import fetch_google_sheet_data
-from utils.data_processor import process_data
+from utils.data_processor import process_data, format_currency_brl
 from views.monthly_view import show_monthly_view
 from views.period_view import show_period_view
 from views.yearly_view import show_yearly_view
@@ -50,7 +50,7 @@ def load_data():
             if not processed_data.empty:
                 st.sidebar.expander("Dados Processados (Debug)", expanded=False).write(f"""
                 Processados: {processed_data.shape[0]} linhas
-                Soma de valores: R$ {processed_data['Value'].sum():.2f}
+                Soma de valores: {format_currency_brl(processed_data['Value'].sum())}
                 Data mínima: {processed_data['Date'].min().strftime('%d/%m/%Y')}
                 Data máxima: {processed_data['Date'].max().strftime('%d/%m/%Y')}
                 """)

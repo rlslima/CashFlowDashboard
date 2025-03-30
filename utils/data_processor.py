@@ -73,7 +73,7 @@ def process_data(df):
     
     # Resumo do processamento
     print(f"Processamento concluído: {len(df_processed)} linhas válidas")
-    print(f"Soma total de valores: R$ {df_processed['Value'].sum():.2f}")
+    print(f"Soma total de valores: R$ {df_processed['Value'].sum():,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
     
     return df_processed
 
@@ -130,6 +130,18 @@ def convert_currency_to_float(value_str):
         # Debug mais detalhado do erro
         print(f"ERRO ao converter valor '{value_str}': {str(e)}")
         return 0.0
+
+def format_currency_brl(value):
+    """
+    Formata um valor numérico para o formato de moeda brasileira
+    
+    Args:
+        value (float): Valor numérico
+    
+    Returns:
+        str: Valor formatado como string no formato R$ 1.234,56
+    """
+    return f"R$ {value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 def calculate_cash_flow_summary(df):
     """
