@@ -209,7 +209,7 @@ def show_yearly_view(df):
     with category_container:
         st.subheader("Análise por Categorias")
         
-        tab1, tab2 = st.tabs(["Por Código de Trabalho", "Por Empresa"])
+        tab1, tab2 = st.tabs(["Por Obra", "Por Empresa"])
         
         with tab1:
             col1, col2 = st.columns(2)
@@ -224,13 +224,13 @@ def show_yearly_view(df):
                         income_by_work,
                         values="Value",
                         names="Work",
-                        title="Receitas por Código de Trabalho",
+                        title="Receitas por Obra",
                         hole=0.4
                     )
                     
                     st.plotly_chart(fig, use_container_width=True)
                 else:
-                    st.info("Sem dados de receita para análise por código de trabalho.")
+                    st.info("Sem dados de receita para análise por Obra.")
             
             # Expense by work code
             with col2:
@@ -242,13 +242,13 @@ def show_yearly_view(df):
                         expense_by_work,
                         values="Value",
                         names="Work",
-                        title="Despesas por Código de Trabalho",
+                        title="Despesas por Obra",
                         hole=0.4
                     )
                     
                     st.plotly_chart(fig, use_container_width=True)
                 else:
-                    st.info("Sem dados de despesa para análise por código de trabalho.")
+                    st.info("Sem dados de despesa para análise por Obra.")
         
         with tab2:
             # Only show if we have multiple companies

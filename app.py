@@ -8,6 +8,7 @@ from views.monthly_view import show_monthly_view
 from views.period_view import show_period_view
 from views.yearly_view import show_yearly_view
 from views.company_view import show_company_view
+from views.daily_view import show_daily_view
 
 # Configuração da página
 st.set_page_config(
@@ -107,7 +108,7 @@ with st.sidebar:
     st.subheader("Visualizações")
     view = st.radio(
         "Selecionar Visualização",
-        options=["Fluxo de Caixa Mensal", "Análise por Período", "Resumo Anual", "Comparação de Empresas"],
+        options=["Fluxo de Caixa Mensal", "Análise por Período", "Resumo Anual", "Comparação de Empresas", "Fluxo de Caixa Diário"],
         label_visibility="collapsed"
     )
 
@@ -138,7 +139,7 @@ if st.session_state.data is not None:
         # Filtro de código de trabalho
         with col3:
             all_works = ["Todos"] + sorted(df["Work"].unique().tolist())
-            selected_work = st.selectbox("Código de Trabalho", all_works)
+            selected_work = st.selectbox("Obra", all_works)
     
     # Aplicar filtros globais
     filtered_df = df.copy()
@@ -161,6 +162,8 @@ if st.session_state.data is not None:
         show_yearly_view(filtered_df)
     elif view == "Comparação de Empresas":
         show_company_view(filtered_df)
+    elif view == "Fluxo de Caixa Diário":
+        show_daily_view(filtered_df)
     
 else:
     st.error("Não há dados disponíveis. Por favor, verifique a conexão com o Google Sheets ou tente atualizar.")

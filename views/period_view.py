@@ -236,7 +236,7 @@ def show_period_view(df):
     with breakdown_container:
         st.subheader("Análise de Despesas e Receitas")
         
-        tab1, tab2 = st.tabs(["Por Código de Trabalho", "Por Fornecedor/Cliente"])
+        tab1, tab2 = st.tabs(["Por Obra", "Por Fornecedor/Cliente"])
         
         with tab1:
             col1, col2 = st.columns(2)
@@ -251,13 +251,13 @@ def show_period_view(df):
                         expense_by_work,
                         values="Value",
                         names="Work",
-                        title="Despesas por Código de Trabalho",
+                        title="Despesas por Obra",
                         hole=0.4
                     )
                     
                     st.plotly_chart(fig, use_container_width=True)
                 else:
-                    st.info("Não há dados de despesas para análise por código de trabalho.")
+                    st.info("Não há dados de despesas para análise por Obra.")
             
             # Análise de receitas por código de trabalho
             with col2:
@@ -269,13 +269,13 @@ def show_period_view(df):
                         income_by_work,
                         values="Value",
                         names="Work",
-                        title="Receitas por Código de Trabalho",
+                        title="Receitas por Obra",
                         hole=0.4
                     )
                     
                     st.plotly_chart(fig, use_container_width=True)
                 else:
-                    st.info("Não há dados de receitas para análise por código de trabalho.")
+                    st.info("Não há dados de receitas para análise por Obra.")
         
         with tab2:
             # Mostrar principais fornecedores/clientes
@@ -350,7 +350,7 @@ def show_period_view(df):
         "Date": "Data", 
         "Company": "Empresa", 
         "Type": "Tipo", 
-        "Work": "Cód. Trabalho", 
+        "Work": "Obra", 
         "Supplier/Client": "Fornecedor/Cliente", 
         "Value": "Valor"
     }
