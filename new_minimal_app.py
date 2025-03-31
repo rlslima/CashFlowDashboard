@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import os
+import requests
+from io import BytesIO
 
 # Configurar o ambiente
 os.environ["PYTHONPATH"] = "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages"
@@ -44,14 +46,51 @@ def create_sample_data():
     df = pd.DataFrame(data)
     return df
 
+# Função para carregar dados do Google Sheets via URL de exportação
+def load_from_google_sheets(sheet_url):
+    try:
+        # Acessar a URL e baixar os dados
+        response = requests.get(sheet_url)
+        response.raise_for_status()  # Verificar se houve erro na requisição
+        
+        # Carregar os dados em um DataFrame
+        excel_data = BytesIO(response.content)
+        df = pd.read_excel(excel_data, engine='openpyxl')
+        
+        return df
+    except Exception as e:
+        st.error(f"Erro ao carregar dados da planilha: {str(e)}")
+        return None
+
 # Barra lateral
 with st.sidebar:
     st.title("Controles do Painel")
     
+    # Campo para URL da planilha do Google Sheets
+    sheet_url = st.text_input("URL da Planilha", 
+                            value="", 
+                            help="Cole a URL da planilha exportada do Google Sheets")
+    
+    # Botão para carregar dados da planilha
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Carregar da URL", use_container_width=True):
+            if sheet_url:
+                # Salvar URL na sessão
+                st.session_state.sheet_url = sheet_url
+                st.session_state.last_refresh = datetime.now()
+                st.success("URL salva! Carregando dados...")
+                st.rerun()
+    
     # Botão para carregar dados de exemplo
-    if st.button("Carregar Dados de Exemplo", use_container_width=True):
-        st.session_state.last_refresh = datetime.now()
-        st.success("Dados carregados com sucesso!")
+    with col2:
+        if st.button("Dados de Exemplo", use_container_width=True):
+            # Limpar URL da sessão
+            if 'sheet_url' in st.session_state:
+                del st.session_state.sheet_url
+            st.session_state.last_refresh = datetime.now()
+            st.success("Usando dados de exemplo!")
+            st.rerun()
     
     # Mostrar última hora de atualização
     if 'last_refresh' in st.session_state:
@@ -69,12 +108,21 @@ with st.sidebar:
 
 # Tentar carregar ou criar dados de exemplo
 try:
-    try:
-        # Tentar carregar do arquivo
-        df = pd.read_excel("example_financial_data.xlsx", engine='openpyxl')
-    except:
-        # Se não encontrar, criar dados de exemplo
-        df = create_sample_data()
+    # Verificar se há URL na sessão
+    if 'sheet_url' in st.session_state and st.session_state.sheet_url:
+        # Tentar carregar dados da URL
+        df = load_from_google_sheets(st.session_state.sheet_url)
+        if df is None:
+            # Se falhar, usar dados de exemplo
+            df = create_sample_data()
+            st.warning("Não foi possível carregar dados da URL. Usando dados de exemplo.")
+    else:
+        try:
+            # Tentar carregar do arquivo local
+            df = pd.read_excel("example_financial_data.xlsx", engine='openpyxl')
+        except:
+            # Se não encontrar, criar dados de exemplo
+            df = create_sample_data()
     
     # Processar dados básicos
     df['Date'] = pd.to_datetime(df['Date'], format='%d/%m/%Y', errors='coerce')
@@ -227,7 +275,9 @@ try:
             income_data = income_data.loc[(income_data != 0).any(axis=1)]
             
             # Aplicar formatação de moeda em toda a tabela
-            formatted_income = income_data.applymap(format_currency_brl)
+            formatted_income = income_data.copy()
+            for col in formatted_income.columns:
+                formatted_income[col] = formatted_income[col].apply(format_currency_brl)
             st.dataframe(formatted_income, use_container_width=True)
         else:
             st.info("Não há dados de receitas para exibir com os filtros selecionados.")
@@ -238,7 +288,9 @@ try:
             expense_data = expense_data.loc[(expense_data != 0).any(axis=1)]
             
             # Aplicar formatação de moeda em toda a tabela
-            formatted_expense = expense_data.applymap(format_currency_brl)
+            formatted_expense = expense_data.copy()
+            for col in formatted_expense.columns:
+                formatted_expense[col] = formatted_expense[col].apply(format_currency_brl)
             st.dataframe(formatted_expense, use_container_width=True)
         else:
             st.info("Não há dados de despesas para exibir com os filtros selecionados.")
