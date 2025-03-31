@@ -19,6 +19,10 @@ author = "agent"
 task = "workflow.run"
 args = "Combrasen_Dashboard"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Simple_Dashboard"
+
 [[workflows.workflow]]
 name = "Combrasen_Dashboard"
 author = "agent"
@@ -32,6 +36,21 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "export PYTHONPATH=/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages && /nix/store/wqhkxzzlaswkj3gimqign99sshvllcg6-python-wrapped-0.1.0/bin/.python-wrapped -m streamlit run app.py --server.port=5000 --server.headless=true --server.address=0.0.0.0"
+waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Simple_Dashboard"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "export PYTHONPATH=/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages && /nix/store/wqhkxzzlaswkj3gimqign99sshvllcg6-python-wrapped-0.1.0/bin/.python-wrapped -m streamlit run simple_app.py --server.port=5000 --server.headless=true --server.address=0.0.0.0"
 waitForPort = 5000
 
 [[ports]]
