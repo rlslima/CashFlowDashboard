@@ -36,7 +36,7 @@ with st.sidebar:
     st.subheader("Visualizações")
     view = st.radio(
         "Selecionar Visualização",
-        options=["Resumo Geral", "Fluxo de Caixa Mensal", "Comparação de Empresas"],
+        options=["Resumo Geral", "Fluxo de Caixa Mensal", "Comparação de Empresas", "Fluxo de Caixa Diário"],
         label_visibility="collapsed"
     )
 
@@ -54,7 +54,7 @@ try:
     
     # Filtros Globais
     with st.expander("Filtros Globais", expanded=True):
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         
         # Filtro de empresa
         with col1:
@@ -65,6 +65,11 @@ try:
         with col2:
             all_types = ["Todos"] + sorted(df["Type"].unique().tolist())
             selected_type = st.selectbox("Tipo", all_types)
+            
+        # Filtro de obra
+        with col3:
+            all_works = ["Todas"] + sorted(df["Work"].unique().tolist())
+            selected_work = st.selectbox("Obra", all_works)
     
     # Aplicar filtros globais
     filtered_df = df.copy()
@@ -74,6 +79,9 @@ try:
     
     if selected_type != "Todos":
         filtered_df = filtered_df[filtered_df["Type"] == selected_type]
+        
+    if selected_work != "Todas":
+        filtered_df = filtered_df[filtered_df["Work"] == selected_work]
     
     # Exibir visualização selecionada
     if view == "Resumo Geral":
@@ -164,6 +172,45 @@ try:
             formatted_table[col] = formatted_table[col].apply(format_currency_brl)
         
         st.dataframe(formatted_table, use_container_width=True)
+        
+    elif view == "Fluxo de Caixa Diário":
+        st.subheader("Fluxo de Caixa Diário por Obra")
+        
+        # Agrupar por data, obra e tipo
+        daily_flow = filtered_df.groupby(['Date', 'Work', 'Type'])['Value'].sum().reset_index()
+        
+        # Criar tabelas dinâmicas: Obras nas linhas, Datas nas colunas
+        income_data = daily_flow[daily_flow['Type'] == 'Income'].pivot(index='Work', columns='Date', values='Value').fillna(0)
+        expense_data = daily_flow[daily_flow['Type'] == 'Expense'].pivot(index='Work', columns='Date', values='Value').fillna(0)
+        
+        # Formatar datas nas colunas
+        if not income_data.empty:
+            income_data.columns = income_data.columns.strftime('%d/%m/%Y')
+        if not expense_data.empty:
+            expense_data.columns = expense_data.columns.strftime('%d/%m/%Y')
+        
+        # Mostrar tabelas de receitas e despesas
+        st.subheader("Receitas por Obra e Data")
+        if not income_data.empty:
+            # Remover linhas com valores zerados (opcional)
+            income_data = income_data.loc[(income_data != 0).any(axis=1)]
+            
+            # Aplicar formatação de moeda em toda a tabela
+            formatted_income = income_data.applymap(format_currency_brl)
+            st.dataframe(formatted_income, use_container_width=True)
+        else:
+            st.info("Não há dados de receitas para exibir com os filtros selecionados.")
+        
+        st.subheader("Despesas por Obra e Data")
+        if not expense_data.empty:
+            # Remover linhas com valores zerados (opcional)
+            expense_data = expense_data.loc[(expense_data != 0).any(axis=1)]
+            
+            # Aplicar formatação de moeda em toda a tabela
+            formatted_expense = expense_data.applymap(format_currency_brl)
+            st.dataframe(formatted_expense, use_container_width=True)
+        else:
+            st.info("Não há dados de despesas para exibir com os filtros selecionados.")
     
 except Exception as e:
     st.error(f"Erro ao carregar os dados: {str(e)}")
