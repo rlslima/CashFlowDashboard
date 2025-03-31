@@ -61,7 +61,8 @@ def show_daily_view(df):
             "Data Inicial",
             value=current_date,
             min_value=min_date.date(),
-            max_value=max_date.date()
+            max_value=max_date.date(),
+            format="DD/MM/YYYY"
         )
     
     with col2:
@@ -69,7 +70,8 @@ def show_daily_view(df):
             "Data Final",
             value=end_date_default,
             min_value=min_date.date(),
-            max_value=max_date.date()
+            max_value=max_date.date(),
+            format="DD/MM/YYYY"
         )
     
     # Filtrar dados pelo intervalo de datas selecionado
@@ -198,26 +200,21 @@ def show_daily_view(df):
                 html_table += f"<tr><td style='text-align:left;'>{obra}</td>"
                 
                 for date in unique_dates:
-                    value = 0
                     if date in income_by_date_work.index and obra in income_by_date_work.columns:
                         value = income_by_date_work.loc[date, obra]
-                    
-                    value_str = format_currency_brl(value) if value > 0 else "R$ 0,00"
-                    html_table += f"<td>{value_str}</td>"
-                
+                        html_table += f"<td>{format_currency_brl(value)}</td>"
+                    else:
+                        html_table += "<td>0,00</td>"
                 html_table += "</tr>"
             
             # Linha de total de receitas
-            html_table += "<tr class='total-row'><td style='text-align:left;'>TOTAL RECEITA</td>"
-            
+            html_table += "<tr class='total-row'><td style='text-align:left;'>TOTAL RECEITAS</td>"
             for date in unique_dates:
-                total_value = income_totals_by_date.get(date, 0)
-                total_str = format_currency_brl(total_value) if total_value > 0 else "R$ 0,00"
-                html_table += f"<td>{total_str}</td>"
-            
+                total = income_totals_by_date.get(date, 0)
+                html_table += f"<td>{format_currency_brl(total)}</td>"
             html_table += "</tr>"
             
-            # Cabeçalho das despesas
+            # Linha de despesas
             html_table += """
                 <tr class="expense-header">
                     <td colspan="{}" style="text-align:left;">DESPESAS</td>
@@ -247,42 +244,113 @@ def show_daily_view(df):
                 html_table += f"<tr><td style='text-align:left;'>{obra}</td>"
                 
                 for date in unique_dates:
-                    value = 0
                     if date in expense_by_date_work.index and obra in expense_by_date_work.columns:
                         value = expense_by_date_work.loc[date, obra]
-                    
-                    value_str = format_currency_brl(value) if value > 0 else "R$ 0,00"
-                    html_table += f"<td>{value_str}</td>"
-                
+                        html_table += f"<td>{format_currency_brl(value)}</td>"
+                    else:
+                        html_table += "<td>0,00</td>"
                 html_table += "</tr>"
             
             # Linha de total de despesas
-            html_table += "<tr class='total-row'><td style='text-align:left;'>TOTAL DESPESA</td>"
-            
+            html_table += "<tr class='total-row'><td style='text-align:left;'>TOTAL DESPESAS</td>"
             for date in unique_dates:
-                total_value = expense_totals_by_date.get(date, 0)
-                total_str = format_currency_brl(total_value) if total_value > 0 else "R$ 0,00"
-                html_table += f"<td>{total_str}</td>"
-            
+                total = expense_totals_by_date.get(date, 0)
+                html_table += f"<td>{format_currency_brl(total)}</td>"
             html_table += "</tr>"
             
-            # Linha de saldo diário
+            # Linha de saldo
             html_table += "<tr class='balance-row'><td style='text-align:left;'>SALDO</td>"
-            
             for date in unique_dates:
-                income_value = income_totals_by_date.get(date, 0)
-                expense_value = expense_totals_by_date.get(date, 0)
-                balance = income_value - expense_value
-                
-                # Aplicar classe CSS para saldo negativo
-                class_style = " class='negative-balance'" if balance < 0 else ""
-                balance_str = format_currency_brl(balance)
-                html_table += f"<td{class_style}>{balance_str}</td>"
+                income = income_totals_by_date.get(date, 0)
+                expense = expense_totals_by_date.get(date, 0)
+                balance = income - expense
+                balance_class = "negative-balance" if balance < 0 else ""
+                html_table += f"<td class='{balance_class}'>{format_currency_brl(balance)}</td>"
+            html_table += "</tr>"
             
-            html_table += "</tr></table>"
-            
-            # Exibir a tabela HTML
+            html_table += "</table>"
             st.markdown(html_table, unsafe_allow_html=True)
+            
+            # Adicionar gráfico de barras após a tabela
+            st.markdown("### Gráfico de Fluxo de Caixa Diário")
+            
+            # Preparar dados para o gráfico
+            daily_data = []
+            for date in unique_dates:
+                income = income_totals_by_date.get(date, 0)
+                expense = expense_totals_by_date.get(date, 0)
+                daily_data.append({
+                    'Data': date.strftime("%d/%m/%Y"),
+                    'Receitas': income,
+                    'Despesas': -expense,  # Negativo para mostrar abaixo do eixo
+                    'Saldo': income - expense
+                })
+            
+            daily_df = pd.DataFrame(daily_data)
+            
+            # Criar gráfico de barras empilhadas
+            fig = go.Figure()
+            
+            # Adicionar barras de receitas
+            fig.add_trace(go.Bar(
+                x=daily_df['Data'],
+                y=daily_df['Receitas'],
+                name='Receitas',
+                marker_color=receita_color
+            ))
+            
+            # Adicionar barras de despesas
+            fig.add_trace(go.Bar(
+                x=daily_df['Data'],
+                y=daily_df['Despesas'],
+                name='Despesas',
+                marker_color=despesa_color
+            ))
+            
+            # Adicionar linha de saldo
+            fig.add_trace(go.Scatter(
+                x=daily_df['Data'],
+                y=daily_df['Saldo'],
+                name='Saldo',
+                mode='lines+markers',
+                line=dict(color='#FFD700', width=2),
+                marker=dict(size=8)
+            ))
+            
+            # Atualizar layout
+            fig.update_layout(
+                title='Fluxo de Caixa Diário',
+                xaxis_title='Data',
+                yaxis_title='Valor (R$)',
+                barmode='group',
+                height=500,
+                showlegend=True,
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="right",
+                    x=1
+                )
+            )
+            
+            # Formatar valores do eixo Y como moeda
+            fig.update_yaxes(tickformat="R$,.2f")
+            
+            # Exibir o gráfico
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Adicionar legenda explicativa
+            st.markdown("""
+            <div style='background-color: #f8f9fa; padding: 10px; border-radius: 5px; margin-top: 10px;'>
+                <p><strong>Legenda:</strong></p>
+                <ul>
+                    <li>Barras verdes: Receitas</li>
+                    <li>Barras vermelhas: Despesas</li>
+                    <li>Linha amarela: Saldo diário</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
             
             # Adicionar função para gerar PDF
             def generate_pdf():

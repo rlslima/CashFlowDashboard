@@ -5,12 +5,13 @@ import re
 import os
 import streamlit as st
 
-def fetch_google_sheet_data(sheet_url):
+def fetch_google_sheet_data(sheet_url, sheet_name=None):
     """
     Busca dados de uma planilha do Google Sheets usando a URL de exportação
     
     Args:
         sheet_url (str): URL para a planilha do Google
+        sheet_name (str, optional): Nome da aba específica para carregar
     
     Returns:
         pandas.DataFrame: DataFrame contendo os dados da planilha
@@ -43,7 +44,15 @@ def fetch_google_sheet_data(sheet_url):
         # Ler dados do Excel
         excel_data = io.BytesIO(response.content)
         
-        # Ler a primeira planilha do arquivo Excel
+        # Se uma aba específica foi solicitada, tentar carregar apenas ela
+        if sheet_name:
+            try:
+                df = pd.read_excel(excel_data, sheet_name=sheet_name, engine='openpyxl')
+                return df
+            except ValueError:
+                st.warning(f"A aba '{sheet_name}' não foi encontrada. Carregando a primeira aba.")
+        
+        # Se não foi especificada uma aba ou ela não foi encontrada, carregar a primeira
         df = pd.read_excel(excel_data, engine='openpyxl')
         
         # Verificar se os dados foram carregados corretamente
@@ -66,6 +75,6 @@ def fetch_google_sheet_data(sheet_url):
         return df
     
     except Exception as e:
-        st.error(f"Erro ao buscar dados do Google Sheets: {str(e)}")
+        st.error(f"Erro ao carregar dados do Google Sheets: {str(e)}")
         st.sidebar.expander("Erro Detalhado", expanded=False).write(str(e))
         return None

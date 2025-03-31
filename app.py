@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import os
+import pytz
 from utils.google_sheets import fetch_google_sheet_data
 from utils.data_processor import process_data, format_currency_brl
 from views.monthly_view import show_monthly_view
@@ -9,6 +10,7 @@ from views.period_view import show_period_view
 from views.yearly_view import show_yearly_view
 from views.company_view import show_company_view
 from views.daily_view import show_daily_view
+from views.settings_view import show_settings_view
 
 # Configuração da página
 st.set_page_config(
@@ -22,6 +24,8 @@ st.set_page_config(
 if 'data' not in st.session_state:
     st.session_state.data = None
     st.session_state.last_refresh = None
+if 'sheet_url' not in st.session_state:
+    st.session_state.sheet_url = "https://docs.google.com/spreadsheets/d/1XRy39MblVtmWLpggz1cC_qIRdqE40vIx/edit?usp=sharing&ouid=110344857582375962786&rtpof=true&sd=true"
 
 # Título e cabeçalho do aplicativo
 st.title("Painel Financeiro do Grupo Combrasen")
@@ -31,22 +35,15 @@ st.markdown("---")
 @st.cache_data(ttl=300)  # Cache por 5 minutos
 def load_data():
     try:
-        # URL do Google Sheet
-        sheet_url = "https://docs.google.com/spreadsheets/d/1XRy39MblVtmWLpggz1cC_qIRdqE40vIx/edit?usp=sharing&ouid=110344857582375962786&rtpof=true&sd=true"
-        
         # Buscar dados do Google Sheets
-        raw_data = fetch_google_sheet_data(sheet_url)
+        raw_data = fetch_google_sheet_data(
+            st.session_state.sheet_url,
+            sheet_name=st.session_state.get('selected_sheet')
+        )
         
         if raw_data is not None and not raw_data.empty:
             # Processar os dados
             processed_data = process_data(raw_data)
-            
-            # Para debug: mostrar os dados brutos e processados
-            st.sidebar.expander("Dados Brutos (Debug)", expanded=False).write(f"""
-            Dados brutos: {raw_data.shape[0]} linhas
-            Colunas: {raw_data.columns.tolist()}
-            Primeiros valores: {str(raw_data.head(3))}
-            """)
             
             if not processed_data.empty:
                 st.sidebar.expander("Dados Processados (Debug)", expanded=False).write(f"""
@@ -64,59 +61,29 @@ def load_data():
         st.error(f"Erro ao carregar dados: {str(e)}")
         return None
 
-# Barra lateral - Atualização e Upload de dados
+# Barra lateral - Navegação
 with st.sidebar:
-    st.title("Controles do Painel")
+    st.title("Menu de Navegação")
     
-    # Adicionar opção para carregar arquivo local
-    uploaded_file = st.file_uploader("Upload planilha Excel", type=['xlsx', 'xls'])
-    
-    if uploaded_file is not None:
-        try:
-            with st.spinner("Carregando arquivo..."):
-                # Ler o arquivo Excel
-                raw_data = pd.read_excel(uploaded_file, engine='openpyxl')
-                
-                # Processar os dados
-                processed_data = process_data(raw_data)
-                
-                # Atualizar os dados na sessão
-                st.session_state.data = processed_data
-                st.session_state.last_refresh = datetime.now()
-                
-            st.success("Arquivo carregado com sucesso!")
-        except Exception as e:
-            st.error(f"Erro ao carregar o arquivo: {str(e)}")
-    
-    # Separador
-    st.markdown("---")
-    
-    # Botão para atualizar dados (Google Sheets)
-    if st.button("Atualizar via Google Sheets", use_container_width=True):
-        with st.spinner("Atualizando dados..."):
-            st.session_state.data = load_data()
-            st.session_state.last_refresh = datetime.now()
-        st.success("Dados atualizados com sucesso!")
+    # Navegação
+    view = st.radio(
+        "Selecionar Visualização",
+        options=["Fluxo de Caixa Diário", "Fluxo de Caixa Mensal", "Análise por Período", "Resumo Anual", "Comparação de Empresas", "Configurações"],
+        label_visibility="collapsed"
+    )
     
     # Mostrar última hora de atualização
     if st.session_state.last_refresh:
-        st.info(f"Última atualização: {st.session_state.last_refresh.strftime('%d/%m/%Y %H:%M:%S')}")
-    
-    st.markdown("---")
-    
-    # Navegação
-    st.subheader("Visualizações")
-    view = st.radio(
-        "Selecionar Visualização",
-        options=["Fluxo de Caixa Mensal", "Análise por Período", "Resumo Anual", "Comparação de Empresas", "Fluxo de Caixa Diário"],
-        label_visibility="collapsed"
-    )
+        # Converter para o fuso horário do Brasil
+        br_timezone = pytz.timezone('America/Sao_Paulo')
+        last_refresh_br = st.session_state.last_refresh.astimezone(br_timezone)
+        st.info(f"Última atualização: {last_refresh_br.strftime('%d/%m/%Y %H:%M:%S')} (Brasil)")
 
 # Carregar dados se ainda não estiverem carregados
 if st.session_state.data is None:
     with st.spinner("Carregando dados pela primeira vez..."):
         st.session_state.data = load_data()
-        st.session_state.last_refresh = datetime.now()
+        st.session_state.last_refresh = datetime.now(pytz.timezone('America/Sao_Paulo'))
 
 # Mostrar dados ou mensagem de erro
 if st.session_state.data is not None:
@@ -154,7 +121,9 @@ if st.session_state.data is not None:
         filtered_df = filtered_df[filtered_df["Work"] == selected_work]
     
     # Exibir visualização selecionada
-    if view == "Fluxo de Caixa Mensal":
+    if view == "Fluxo de Caixa Diário":
+        show_daily_view(filtered_df)
+    elif view == "Fluxo de Caixa Mensal":
         show_monthly_view(filtered_df)
     elif view == "Análise por Período":
         show_period_view(filtered_df)
@@ -162,8 +131,8 @@ if st.session_state.data is not None:
         show_yearly_view(filtered_df)
     elif view == "Comparação de Empresas":
         show_company_view(filtered_df)
-    elif view == "Fluxo de Caixa Diário":
-        show_daily_view(filtered_df)
+    elif view == "Configurações":
+        show_settings_view()
     
 else:
     st.error("Não há dados disponíveis. Por favor, verifique a conexão com o Google Sheets ou tente atualizar.")
