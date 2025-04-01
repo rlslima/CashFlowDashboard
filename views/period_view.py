@@ -154,8 +154,8 @@ def show_period_view(df):
         
         col1, col2, col3, col4 = st.columns(4)
         
-        income_df = filtered_df[filtered_df["Type"] == "Receita"]
-        expense_df = filtered_df[filtered_df["Type"] == "Despesa"]
+        income_df = filtered_df[filtered_df["Type"] == "Entrada"]
+        expense_df = filtered_df[filtered_df["Type"] == "Saída"]
         
         total_income = income_df["Value"].sum()
         total_expense = expense_df["Value"].sum()
@@ -185,13 +185,13 @@ def show_period_view(df):
         # Agrupar por data para análise de tendência
         daily_data = filtered_df.groupby(["Date", "Type"])["Value"].sum().unstack(fill_value=0).reset_index()
         
-        if "Receita" not in daily_data.columns:
-            daily_data["Receita"] = 0
+        if "Entrada" not in daily_data.columns:
+            daily_data["Entrada"] = 0
         
-        if "Despesa" not in daily_data.columns:
-            daily_data["Despesa"] = 0
+        if "Saída" not in daily_data.columns:
+            daily_data["Saída"] = 0
         
-        daily_data["Net"] = daily_data["Receita"] - daily_data["Despesa"]
+        daily_data["Net"] = daily_data["Entrada"] - daily_data["Saída"]
         daily_data["Cumulative Net"] = daily_data["Net"].cumsum()
         
         # Gráfico de linha para fluxo de caixa acumulado
@@ -208,7 +208,7 @@ def show_period_view(df):
         # Adicionar receitas e despesas como gráfico de barras
         fig.add_trace(go.Bar(
             x=daily_data["Date"],
-            y=daily_data["Receita"],
+            y=daily_data["Entrada"],
             name="Receitas",
             marker_color="green",
             opacity=0.7
@@ -216,7 +216,7 @@ def show_period_view(df):
         
         fig.add_trace(go.Bar(
             x=daily_data["Date"],
-            y=daily_data["Despesa"] * -1,  # Negativo para mostrar abaixo do eixo
+            y=daily_data["Saída"] * -1,  # Negativo para mostrar abaixo do eixo
             name="Despesas",
             marker_color="red",
             opacity=0.7

@@ -46,8 +46,8 @@ def show_monthly_view(df):
         month_name = calendar.month_name[month]
         month_df = year_df[year_df["Month"] == month]
         
-        income = month_df[month_df["Type"] == "Receita"]["Value"].sum()
-        expense = month_df[month_df["Type"] == "Despesa"]["Value"].sum()
+        income = month_df[month_df["Type"] == "Entrada"]["Value"].sum()
+        expense = month_df[month_df["Type"] == "Saída"]["Value"].sum()
         net = income - expense
         
         monthly_data.append({
@@ -149,7 +149,7 @@ def show_monthly_view(df):
     tab1, tab2 = st.tabs(["Maiores Despesas", "Maiores Receitas"])
     
     with tab1:
-        top_expenses = year_df[year_df["Type"] == "Despesa"].sort_values("Value", ascending=False).head(10)
+        top_expenses = year_df[year_df["Type"] == "Saída"].sort_values("Value", ascending=False).head(10)
         if not top_expenses.empty:
             expense_fig = px.bar(
                 top_expenses,
@@ -165,7 +165,7 @@ def show_monthly_view(df):
             st.info("Não há dados de despesas disponíveis.")
     
     with tab2:
-        top_income = year_df[year_df["Type"] == "Receita"].sort_values("Value", ascending=False).head(10)
+        top_income = year_df[year_df["Type"] == "Entrada"].sort_values("Value", ascending=False).head(10)
         if not top_income.empty:
             income_fig = px.bar(
                 top_income,

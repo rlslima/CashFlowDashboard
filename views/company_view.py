@@ -30,8 +30,8 @@ def show_company_view(df):
             st.subheader(f"{company_name} Summary")
             
             company_df = df[df["Company"] == company_name]
-            income_df = company_df[company_df["Type"] == "Income"]
-            expense_df = company_df[company_df["Type"] == "Expense"]
+            income_df = company_df[company_df["Type"] == "Entrada"]
+            expense_df = company_df[company_df["Type"] == "Saída"]
             
             total_income = income_df["Value"].sum()
             total_expense = expense_df["Value"].sum()
@@ -140,15 +140,15 @@ def show_company_view(df):
     # Prepare company data
     company_data = filtered_df.groupby(["Company", "Type"])["Value"].sum().unstack(fill_value=0).reset_index()
     
-    if "Income" not in company_data.columns:
-        company_data["Income"] = 0
+    if "Entrada" not in company_data.columns:
+        company_data["Entrada"] = 0
     
-    if "Expense" not in company_data.columns:
-        company_data["Expense"] = 0
+    if "Saída" not in company_data.columns:
+        company_data["Saída"] = 0
     
-    company_data["Net"] = company_data["Income"] - company_data["Expense"]
+    company_data["Net"] = company_data["Entrada"] - company_data["Saída"]
     company_data["Profit Margin"] = company_data.apply(
-        lambda row: (row["Net"] / row["Income"] * 100) if row["Income"] > 0 else 0, 
+        lambda row: (row["Net"] / row["Entrada"] * 100) if row["Entrada"] > 0 else 0, 
         axis=1
     )
     
@@ -156,7 +156,7 @@ def show_company_view(df):
     company_data = company_data.sort_values("Net", ascending=False)
     
     # Create visualizations
-    tabs = st.tabs(["Overview", "Income", "Expenses", "Net Cash Flow", "Profit Margin"])
+    tabs = st.tabs(["Overview", "Entrada", "Saída", "Net Cash Flow", "Profit Margin"])
     
     with tabs[0]:
         # Overview chart with income and expenses for each company
@@ -164,15 +164,15 @@ def show_company_view(df):
         
         fig.add_trace(go.Bar(
             x=company_data["Company"],
-            y=company_data["Income"],
-            name="Income",
+            y=company_data["Entrada"],
+            name="Entrada",
             marker_color="green"
         ))
         
         fig.add_trace(go.Bar(
             x=company_data["Company"],
-            y=company_data["Expense"],
-            name="Expense",
+            y=company_data["Saída"],
+            name="Saída",
             marker_color="red"
         ))
         
@@ -198,16 +198,16 @@ def show_company_view(df):
         
         # Summary table
         display_df = company_data.copy()
-        display_df["Income"] = display_df["Income"].apply(format_currency_brl)
-        display_df["Expense"] = display_df["Expense"].apply(format_currency_brl)
+        display_df["Entrada"] = display_df["Entrada"].apply(format_currency_brl)
+        display_df["Saída"] = display_df["Saída"].apply(format_currency_brl)
         display_df["Net"] = display_df["Net"].apply(format_currency_brl)
         display_df["Profit Margin"] = display_df["Profit Margin"].apply(lambda x: f"{x:.2f}%")
         
         # Rename columns
-        display_df = display_df[["Company", "Income", "Expense", "Net", "Profit Margin"]].rename(columns={
+        display_df = display_df[["Company", "Entrada", "Saída", "Net", "Profit Margin"]].rename(columns={
             "Company": "Empresa", 
-            "Income": "Receitas", 
-            "Expense": "Despesas", 
+            "Entrada": "Receitas", 
+            "Saída": "Despesas", 
             "Net": "Líquido", 
             "Profit Margin": "Margem de Lucro"
         })
@@ -215,23 +215,23 @@ def show_company_view(df):
         st.dataframe(display_df, use_container_width=True)
     
     with tabs[1]:
-        # Income comparison
+        # Entrada comparison
         fig = px.bar(
             company_data,
             x="Company",
-            y="Income",
-            title=f"Income Comparison for {period_title}",
-            labels={"Income": "Income Amount", "Company": "Company Name"},
-            color="Income",
+            y="Entrada",
+            title=f"Entrada Comparison for {period_title}",
+            labels={"Entrada": "Entrada Amount", "Company": "Company Name"},
+            color="Entrada",
             color_continuous_scale="Greens"
         )
         
         st.plotly_chart(fig, use_container_width=True)
         
-        # Income by work code for each company
-        st.subheader("Income by Work Code")
+        # Entrada by work code for each company
+        st.subheader("Entrada by Work Code")
         
-        income_df = filtered_df[filtered_df["Type"] == "Income"]
+        income_df = filtered_df[filtered_df["Type"] == "Entrada"]
         
         if not income_df.empty:
             income_by_company_work = income_df.groupby(["Company", "Work"])["Value"].sum().reset_index()
@@ -241,32 +241,32 @@ def show_company_view(df):
                 x="Company",
                 y="Value",
                 color="Work",
-                title="Income by Work Code for Each Company",
-                labels={"Value": "Income Amount", "Company": "Company Name"}
+                title="Entrada by Work Code for Each Company",
+                labels={"Value": "Entrada Amount", "Company": "Company Name"}
             )
             
             st.plotly_chart(fig, use_container_width=True)
         else:
-            st.info("No income data available for the selected period.")
+            st.info("No entrada data available for the selected period.")
     
     with tabs[2]:
-        # Expense comparison
+        # Saída comparison
         fig = px.bar(
             company_data,
             x="Company",
-            y="Expense",
-            title=f"Expense Comparison for {period_title}",
-            labels={"Expense": "Expense Amount", "Company": "Company Name"},
-            color="Expense",
+            y="Saída",
+            title=f"Saída Comparison for {period_title}",
+            labels={"Saída": "Saída Amount", "Company": "Company Name"},
+            color="Saída",
             color_continuous_scale="Reds"
         )
         
         st.plotly_chart(fig, use_container_width=True)
         
-        # Expense by work code for each company
-        st.subheader("Expenses by Work Code")
+        # Saída by work code for each company
+        st.subheader("Saídas by Work Code")
         
-        expense_df = filtered_df[filtered_df["Type"] == "Expense"]
+        expense_df = filtered_df[filtered_df["Type"] == "Saída"]
         
         if not expense_df.empty:
             expense_by_company_work = expense_df.groupby(["Company", "Work"])["Value"].sum().reset_index()
@@ -276,13 +276,13 @@ def show_company_view(df):
                 x="Company",
                 y="Value",
                 color="Work",
-                title="Expenses by Work Code for Each Company",
-                labels={"Value": "Expense Amount", "Company": "Company Name"}
+                title="Saídas by Work Code for Each Company",
+                labels={"Value": "Saída Amount", "Company": "Company Name"}
             )
             
             st.plotly_chart(fig, use_container_width=True)
         else:
-            st.info("No expense data available for the selected period.")
+            st.info("No saída data available for the selected period.")
     
     with tabs[3]:
         # Net cash flow comparison
@@ -305,13 +305,13 @@ def show_company_view(df):
             # Group data by company and work code, and calculate net for each
             net_by_company_work = filtered_df.groupby(["Company", "Work", "Type"])["Value"].sum().unstack(fill_value=0).reset_index()
             
-            if "Income" not in net_by_company_work.columns:
-                net_by_company_work["Income"] = 0
+            if "Entrada" not in net_by_company_work.columns:
+                net_by_company_work["Entrada"] = 0
             
-            if "Expense" not in net_by_company_work.columns:
-                net_by_company_work["Expense"] = 0
+            if "Saída" not in net_by_company_work.columns:
+                net_by_company_work["Saída"] = 0
             
-            net_by_company_work["Net"] = net_by_company_work["Income"] - net_by_company_work["Expense"]
+            net_by_company_work["Net"] = net_by_company_work["Entrada"] - net_by_company_work["Saída"]
             
             fig = px.bar(
                 net_by_company_work,
@@ -348,7 +348,7 @@ def show_company_view(df):
     
     # Add expense-to-income ratio
     company_metrics["Expense Ratio"] = company_metrics.apply(
-        lambda row: (row["Expense"] / row["Income"] * 100) if row["Income"] > 0 else 0, 
+        lambda row: (row["Saída"] / row["Entrada"] * 100) if row["Entrada"] > 0 else 0, 
         axis=1
     )
     
@@ -362,17 +362,17 @@ def show_company_view(df):
         # Profit margin chart
         fig = px.scatter(
             company_metrics,
-            x="Income",
+            x="Entrada",
             y="Profit Margin",
             size="Net",
             color="Company",
             hover_name="Company",
             size_max=50,
-            title="Profit Margin vs Income"
+            title="Profit Margin vs Entrada"
         )
         
         fig.update_layout(
-            xaxis_title="Income",
+            xaxis_title="Entrada",
             yaxis_title="Profit Margin (%)"
         )
         
@@ -382,17 +382,17 @@ def show_company_view(df):
         # Expense ratio chart
         fig = px.scatter(
             company_metrics,
-            x="Income",
+            x="Entrada",
             y="Expense Ratio",
-            size="Expense",
+            size="Saída",
             color="Company",
             hover_name="Company",
             size_max=50,
-            title="Expense Ratio vs Income"
+            title="Expense Ratio vs Entrada"
         )
         
         fig.update_layout(
-            xaxis_title="Income",
+            xaxis_title="Entrada",
             yaxis_title="Expense Ratio (%)"
         )
         
@@ -404,17 +404,17 @@ def show_company_view(df):
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        # Income ranking
-        income_rank = company_metrics.sort_values("Income", ascending=False).reset_index(drop=True)
+        # Entrada ranking
+        income_rank = company_metrics.sort_values("Entrada", ascending=False).reset_index(drop=True)
         income_rank.index = income_rank.index + 1
         income_rank = income_rank.reset_index().rename(columns={"index": "Rank"})
         
-        income_display = income_rank[["Rank", "Company", "Income"]].copy()
-        income_display["Income"] = income_display["Income"].apply(format_currency_brl)
+        income_display = income_rank[["Rank", "Company", "Entrada"]].copy()
+        income_display["Entrada"] = income_display["Entrada"].apply(format_currency_brl)
         income_display = income_display.rename(columns={
             "Rank": "Posição",
             "Company": "Empresa",
-            "Income": "Receita"
+            "Entrada": "Receita"
         })
         
         st.markdown("#### Ranking de Receitas")

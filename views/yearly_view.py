@@ -43,8 +43,8 @@ def show_yearly_view(df):
     # Create year summary
     with col2:
         # Calculate metrics
-        income_df = year_df[year_df["Type"] == "Receita"]
-        expense_df = year_df[year_df["Type"] == "Despesa"]
+        income_df = year_df[year_df["Type"] == "Entrada"]
+        expense_df = year_df[year_df["Type"] == "Saída"]
         
         total_income = income_df["Value"].sum()
         total_expense = expense_df["Value"].sum()

@@ -26,6 +26,12 @@ def process_data(df):
     # Tratar valores ausentes
     df_processed = df_processed.dropna(subset=["Value", "Date"])
     
+    # Processar coluna Company - garantir que não seja nula
+    if "Company" in df_processed.columns:
+        df_processed["Company"] = df_processed["Company"].fillna("Sem Empresa")
+    else:
+        df_processed["Company"] = "Sem Empresa"
+    
     # Processar coluna Value - converter de string para float
     print(f"Processando {len(df_processed)} valores monetários")
     df_processed["Value"] = df_processed["Value"].astype(str)

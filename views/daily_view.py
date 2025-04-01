@@ -86,8 +86,8 @@ def show_daily_view(df):
     st.subheader("Movimentações Diárias por Obra")
     
     # Separar receitas e despesas
-    income_df = filtered_df[filtered_df["Type"] == "Receita"]
-    expense_df = filtered_df[filtered_df["Type"] == "Despesa"]
+    income_df = filtered_df[filtered_df["Type"] == "Entrada"]
+    expense_df = filtered_df[filtered_df["Type"] == "Saída"]
     
     # Formatação visual com cores
     receita_color = "#00CC96"  # Verde
@@ -576,8 +576,8 @@ def show_daily_view(df):
             
         # Fluxo de caixa líquido diário
         daily_net = filtered_df.groupby("Date").apply(
-            lambda x: x[x["Type"] == "Receita"]["Value"].sum() - 
-                     x[x["Type"] == "Despesa"]["Value"].sum()
+            lambda x: x[x["Type"] == "Entrada"]["Value"].sum() - 
+                     x[x["Type"] == "Saída"]["Value"].sum()
         ).reset_index(name="Net Value")
         
         if not daily_net.empty and len(daily_net) > 1:
