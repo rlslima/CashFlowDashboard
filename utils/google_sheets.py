@@ -147,3 +147,39 @@ def fetch_initial_balances(url):
     except Exception as e:
         print(f"Erro ao carregar saldos iniciais: {str(e)}")
         return None
+
+def get_sheet_names(url):
+    """
+    Obtém os nomes de todas as abas de uma planilha Google Sheets.
+
+    Args:
+        url (str): URL da planilha do Google Sheets.
+
+    Returns:
+        list: Lista com os nomes das abas, ou None em caso de erro.
+    """
+    try:
+        if not url:
+            # Retorna None silenciosamente se a URL não estiver definida ainda
+            return None 
+
+        file_id_match = re.search(r'/d/([a-zA-Z0-9-_]+)', url)
+        if not file_id_match:
+            st.error("URL do Google Sheets inválida.")
+            return None
+        file_id = file_id_match.group(1)
+
+        export_url = f"https://docs.google.com/spreadsheets/d/{file_id}/export?format=xlsx"
+
+        response = requests.get(export_url)
+        response.raise_for_status() # Verifica erros HTTP
+
+        excel_file = pd.ExcelFile(io.BytesIO(response.content))
+        return excel_file.sheet_names
+
+    except requests.exceptions.RequestException as e:
+        st.error(f"Erro de conexão ao buscar nomes das abas: {e}")
+        return None
+    except Exception as e:
+        st.error(f"Erro inesperado ao buscar nomes das abas: {e}")
+        return None

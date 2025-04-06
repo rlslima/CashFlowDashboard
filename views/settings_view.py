@@ -3,9 +3,11 @@ import pandas as pd
 from datetime import datetime
 import pytz
 import io
-from utils.google_sheets import fetch_google_sheet_data
+from utils.google_sheets import fetch_google_sheet_data, get_sheet_names
 import requests
 import re
+from config import save_config, load_config
+from utils.data_processor import process_data
 
 def show_settings_view():
     """
@@ -16,9 +18,12 @@ def show_settings_view():
     # Configurações do Google Sheets
     st.subheader("Configurações do Google Sheets")
     
+    # Carregar configurações salvas
+    config = load_config()
+    
     # URL do Google Sheet
     if 'sheet_url' not in st.session_state:
-        st.session_state.sheet_url = None
+        st.session_state.sheet_url = config.get('sheet_url')
     
     new_url = st.text_input(
         "URL do Google Sheet",
@@ -26,44 +31,50 @@ def show_settings_view():
         help="Cole aqui a URL da planilha do Google Sheets. A URL deve ser do tipo: https://docs.google.com/spreadsheets/d/SEU_ID_AQUI/edit"
     )
     
-    # Inicializar a aba selecionada do Google Sheets na sessão se ainda não existir
-    if 'gs_selected_sheet' not in st.session_state:
-        st.session_state.gs_selected_sheet = None
-    
-    # Se a URL mudou, resetar a aba selecionada e limpar os dados antigos
-    if new_url != st.session_state.sheet_url:
+    # Se a URL mudou, atualizar a sessão e salvar no arquivo de configuração
+    if new_url and new_url != st.session_state.sheet_url:
         st.session_state.sheet_url = new_url
-        st.session_state.gs_selected_sheet = None
+        st.session_state.current_data_source = "google_sheets"
         st.session_state.data = None
         st.session_state.last_refresh = None
-        st.session_state.current_data_source = None
         st.session_state.current_sheet = None
+        st.session_state.gs_selected_sheet = None
+        
+        # Salvar a nova URL no arquivo de configuração
+        config['sheet_url'] = new_url
+        config['gs_selected_sheet'] = None  # Resetar a aba selecionada
+        save_config(config)
     
     try:
         # Obter todas as abas disponíveis
         excel_file = pd.ExcelFile(io.BytesIO(requests.get(f"https://docs.google.com/spreadsheets/d/{re.search(r'/d/([a-zA-Z0-9-_]+)', new_url).group(1)}/export?format=xlsx").content))
         available_sheets = excel_file.sheet_names
         
-        # Se não houver aba selecionada, usar a primeira
+        # Se não houver aba selecionada, usar a primeira ou a última salva
         if st.session_state.gs_selected_sheet is None:
-            st.session_state.gs_selected_sheet = available_sheets[0]
+            st.session_state.gs_selected_sheet = config.get('gs_selected_sheet', available_sheets[0])
         
         # Mostrar seleção de aba
         selected_sheet = st.selectbox(
             "Selecione a aba com os dados financeiros",
             options=available_sheets,
-            index=available_sheets.index(st.session_state.gs_selected_sheet),
+            index=available_sheets.index(st.session_state.gs_selected_sheet) if st.session_state.gs_selected_sheet in available_sheets else 0,
             key="gs_sheet_selector",
             help="Escolha a aba que contém os dados financeiros"
         )
         
-        # Atualizar a aba selecionada na sessão
+        # Atualizar a aba selecionada na sessão e no arquivo de configuração
         if selected_sheet != st.session_state.gs_selected_sheet:
             st.session_state.gs_selected_sheet = selected_sheet
             st.session_state.data = None  # Limpar dados antigos ao mudar de aba
             st.session_state.last_refresh = None
-            st.session_state.current_data_source = None
-            st.session_state.current_sheet = None
+            st.session_state.current_data_source = "google_sheets"
+            st.session_state.current_sheet = selected_sheet
+            
+            # Salvar a aba selecionada no arquivo de configuração
+            config['gs_selected_sheet'] = selected_sheet
+            save_config(config)
+            
             st.success(f"Aba '{selected_sheet}' selecionada!")
         
         # Mostrar prévia dos dados da aba selecionada
@@ -182,7 +193,6 @@ def show_settings_view():
             
             # Ler e processar os dados
             raw_data = pd.read_excel(uploaded_file, sheet_name=selected_sheet, engine='openpyxl')
-            from utils.data_processor import process_data
             processed_preview = process_data(raw_data)
             
             if processed_preview is not None and not processed_preview.empty:

@@ -14,12 +14,13 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from utils.data_processor import format_currency_brl
 
-def show_daily_view(df):
+def show_daily_view(df, initial_balances):
     """
     Mostra a análise de fluxo de caixa diário por Obra
     
     Args:
         df (pandas.DataFrame): DataFrame processado e filtrado
+        initial_balances (pandas.DataFrame): DataFrame com saldos iniciais
     """
     st.header("Fluxo de Caixa Diário por Obra")
     
@@ -95,6 +96,7 @@ def show_daily_view(df):
     background_header_receita = "#D7FFE5"  # Verde claro
     background_header_despesa = "#FFE5E5"  # Vermelho claro
     background_total = "#FFFFCC"  # Amarelo claro
+    background_balance = "#E6F3FF"  # Azul claro
     
     # Obter todas as Obras únicas
     obras = sorted(filtered_df["Work"].unique())
@@ -108,6 +110,21 @@ def show_daily_view(df):
     
     # Criar visualização em formato de tabela (semelhante à imagem)
     if view_option == "Tabela de Fluxo de Caixa":
+        # Adicionar filtro por empresa
+        empresas = sorted(filtered_df["Company"].unique())
+        empresa_selecionada = st.selectbox(
+            "Filtrar por Empresa",
+            options=["Todas"] + empresas,
+            index=0
+        )
+        
+        # Aplicar filtro de empresa se selecionada
+        if empresa_selecionada != "Todas":
+            filtered_df = filtered_df[filtered_df["Company"] == empresa_selecionada]
+            income_df = income_df[income_df["Company"] == empresa_selecionada]
+            expense_df = expense_df[expense_df["Company"] == empresa_selecionada]
+            obras = sorted(filtered_df["Work"].unique())
+        
         # Determine datas únicas no intervalo selecionado
         unique_dates = sorted(filtered_df["Date"].dt.date.unique())
         
@@ -118,6 +135,81 @@ def show_daily_view(df):
         # Criar dataframe para a tabela de fluxo de caixa
         st.markdown("### Fluxo de Caixa Diário")
         
+        # Calcular saldo anterior - Usar o argumento initial_balances
+        initial_balance_for_period = 0 # Renomeado para clareza
+        daily_balances = {}
+        initial_balance_date = None
+
+        # Usar o DataFrame initial_balances passado como argumento
+        if initial_balances is not None and not initial_balances.empty:
+            if empresa_selecionada != "Todas":
+                company_balances = initial_balances[
+                    initial_balances['Company'] == empresa_selecionada
+                ]
+            else:
+                company_balances = initial_balances
+            
+            if not company_balances.empty:
+                # Garantir que a coluna Date seja do tipo datetime (pode já estar, mas garante)
+                company_balances['Date'] = pd.to_datetime(company_balances['Date'])
+                
+                # Pegar o saldo mais recente ANTES ou NA data inicial do período selecionado
+                valid_balances = company_balances[
+                    company_balances['Date'].dt.date <= start_date
+                ].copy() # Usar .copy() para evitar SettingWithCopyWarning
+                
+                if not valid_balances.empty:
+                    if empresa_selecionada == "Todas":
+                        # Para todas as empresas, somar os saldos mais recentes de cada empresa
+                        # Agrupar por empresa e pegar o saldo mais recente de cada uma ANTES ou NA start_date
+                        latest_balances = valid_balances.sort_values('Date').groupby('Company').last()
+                        initial_balance_for_period = latest_balances['Balance'].sum()
+                        # Encontrar a data mais recente entre os saldos iniciais considerados
+                        initial_balance_date = latest_balances['Date'].max().date()
+                    else:
+                        # Para uma empresa específica, pegar o saldo mais recente ANTES ou NA start_date
+                        latest_balance_row = valid_balances.sort_values('Date').iloc[-1]
+                        initial_balance_for_period = latest_balance_row['Balance']
+                        initial_balance_date = latest_balance_row['Date'].date()
+
+        # Calcular saldos diários
+        current_balance = initial_balance_for_period
+        if initial_balance_date:
+             for date_obj in unique_dates:
+                if date_obj <= initial_balance_date:
+                    # Para datas antes ou na data do saldo inicial, usar o saldo inicial calculado
+                    daily_balances[date_obj] = initial_balance_for_period
+                else:
+                    # Para datas após o saldo inicial, usar o saldo acumulado do dia anterior
+                    previous_day = date_obj - timedelta(days=1)
+                    if previous_day in daily_balances:
+                         current_balance = daily_balances[previous_day]
+                         # Atualizar com as movimentações do dia atual
+                         income = income_df[income_df['Date'].dt.date == date_obj]['Value'].sum()
+                         expense = expense_df[expense_df['Date'].dt.date == date_obj]['Value'].sum()
+                         current_balance += (income - expense)
+                         daily_balances[date_obj] = current_balance
+                    else:
+                         # Se não houver saldo do dia anterior (pode acontecer no primeiro dia após o saldo inicial)
+                         # Calcular com base no saldo inicial
+                         income = income_df[income_df['Date'].dt.date == date_obj]['Value'].sum()
+                         expense = expense_df[expense_df['Date'].dt.date == date_obj]['Value'].sum()
+                         current_balance += (income - expense)
+                         daily_balances[date_obj] = current_balance
+        else:
+             # Se não houver saldo inicial, calcular incrementalmente desde o início
+             temp_balance = 0
+             for date_obj in unique_dates:
+                  previous_day = date_obj - timedelta(days=1)
+                  if previous_day in daily_balances:
+                       temp_balance = daily_balances[previous_day]
+
+                  income = income_df[income_df['Date'].dt.date == date_obj]['Value'].sum()
+                  expense = expense_df[expense_df['Date'].dt.date == date_obj]['Value'].sum()
+                  temp_balance += (income - expense)
+                  daily_balances[date_obj] = temp_balance
+
+
         # Gerar a tabela de fluxo de caixa no estilo da imagem
         with st.container():
             # Renderizar a tabela como HTML para maior controle visual
@@ -151,7 +243,7 @@ def show_daily_view(df):
                 font-weight: bold;
             }
             .balance-row {
-                background-color: """ + background_total + """;
+                background-color: """ + background_balance + """;
                 font-weight: bold;
                 color: #009900;
             }
@@ -169,6 +261,18 @@ def show_daily_view(df):
             for date in unique_dates:
                 date_str = date.strftime("%d/%m/%Y")
                 html_table += f"<th>{date_str}</th>"
+            
+            html_table += """
+                </tr>
+                <tr class="balance-row">
+                    <td style="text-align:left;">SALDO ANTERIOR</td>
+            """
+            
+            # Adicionar saldo anterior para cada data
+            for date in unique_dates:
+                balance = daily_balances.get(date, 0)
+                balance_class = "negative-balance" if balance < 0 else ""
+                html_table += f"<td class='{balance_class}'>{format_currency_brl(balance)}</td>"
             
             html_table += """
                 </tr>
@@ -266,6 +370,17 @@ def show_daily_view(df):
                 balance = income - expense
                 balance_class = "negative-balance" if balance < 0 else ""
                 html_table += f"<td class='{balance_class}'>{format_currency_brl(balance)}</td>"
+            html_table += "</tr>"
+            
+            # Linha de saldo acumulado
+            html_table += "<tr class='balance-row'><td style='text-align:left;'>SALDO ACUMULADO</td>"
+            accumulated_balance = initial_balance_for_period
+            for date in unique_dates:
+                income = income_totals_by_date.get(date, 0)
+                expense = expense_totals_by_date.get(date, 0)
+                accumulated_balance += (income - expense)
+                balance_class = "negative-balance" if accumulated_balance < 0 else ""
+                html_table += f"<td class='{balance_class}'>{format_currency_brl(accumulated_balance)}</td>"
             html_table += "</tr>"
             
             html_table += "</table>"
